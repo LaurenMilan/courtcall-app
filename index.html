@@ -509,12 +509,12 @@ hr.div { border:none; border-top:1px solid var(--border); margin:18px 0; }
     <div class="fg"><div class="fl">Skill rating</div>
       <select class="fs" id="e-rating">
         <option value="">Select level</option>
-        <option value="2.5">2.5 — Beginner</option>
-        <option value="3.0">3.0 — Learning</option>
-        <option value="3.5">3.5 — Intermediate</option>
-        <option value="4.0">4.0 — Advanced</option>
-        <option value="4.5">4.5 — Competitive</option>
-        <option value="5.0">5.0 — Elite</option>
+        <option value="2.0">2.0 — Beginner</option>
+        <option value="2.5">2.5 — Learning</option>
+        <option value="3.0">3.0 — Intermediate</option>
+        <option value="3.5">3.5 — Advanced</option>
+        <option value="4.0">4.0 — Expert</option>
+        <option value="4.5">4.5 — Elite</option>
       </select>
     </div>
     <div class="tog-row">
@@ -1083,7 +1083,7 @@ function showProximityPrompt(court, distMetres) {
   S.pending = court.id;
   document.getElementById('ci-name').textContent = court.name;
   const sel = document.getElementById('ci-rating');
-  const opts=[['2.5','2.5 — Beginner'],['3.0','3.0 — Learning'],['3.5','3.5 — Intermediate'],['4.0','4.0 — Advanced'],['4.5','4.5 — Competitive'],['5.0','5.0 — Elite']];
+  const opts=[['2.0','2.0 — Beginner'],['2.5','2.5 — Learning'],['3.0','3.0 — Intermediate'],['3.5','3.5 — Advanced'],['4.0','4.0 — Expert'],['4.5','4.5 — Elite']];
   sel.innerHTML = opts.map(([v,l])=>`<option value="${v}"${v===S.user?.rating?' selected':''}>${l}</option>`).join('');
   S.ciShowName = S.showName;
   document.getElementById('ci-tog').classList.toggle('on', S.ciShowName);
@@ -1317,7 +1317,7 @@ function openCI(id,e){
   const c=COURTS.find(x=>x.id===id);
   document.getElementById('ci-name').textContent=c.name;
   const sel=document.getElementById('ci-rating');
-  sel.innerHTML=[['2.5','Beginner'],['3.0','Learning'],['3.5','Intermediate'],['4.0','Advanced'],['4.5','Competitive'],['5.0','Elite']]
+  sel.innerHTML=[['2.0','Beginner'],['2.5','Learning'],['3.0','Intermediate'],['3.5','Advanced'],['4.0','Expert'],['4.5','Elite']]
     .map(([v,l])=>`<option value="${v}"${v===S.user?.rating?' selected':''}>${v} — ${l}</option>`).join('');
   S.ciShowName=S.showName;
   document.getElementById('ci-tog').classList.toggle('on',S.ciShowName);
