@@ -120,7 +120,8 @@ html,body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-
 .card-head { padding:13px 15px 8px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
 .card-name { font-family:'Barlow Condensed',sans-serif; font-size:21px; font-weight:800; color:var(--text); line-height:1.05; }
 .card-meta { font-size:11px; color:var(--ghost); margin-top:3px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
-.tag { display:inline-flex; align-items:center; gap:3px; font-size:11px; padding:2px 7px; border-radius:4px; font-weight:500; white-space:nowrap; }
+.tag { display:inline-flex; flex-direction:row; flex-wrap:nowrap; align-items:center; gap:3px; font-size:11px; padding:2px 7px; border-radius:4px; font-weight:500; white-space:nowrap; }
+.tag img { display:block; flex-shrink:0; }
 .tag.net    { background:var(--grn-lt); color:var(--grn-dk); }
 .tag.courts { background:#F0FDF4; color:#166534; }
 .tag.nonets { background:var(--bg-3); color:var(--ghost); }
