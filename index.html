@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CourtCall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@800&family=Barlow+Condensed:wght@600;700;800;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CourtCall">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<meta name="msapplication-TileColor" content="#1E4D2B">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #F0F4EE;
+  --bg-2:     #FFFFFF;
+  --bg-3:     #E8EDE6;
+  --grn-dk:   #1E4D2B;
+  --grn-mid:  #2D7A45;
+  --grn-lt:   #D6EDD9;
+  --lime:     #7DC832;
+  --amber:    #E07B00;
+  --amber-lt: #FFF3E0;
+  --closed:   #FEE2E2;
+  --closed-t: #991B1B;
+  --text:     #1A2B1A;
+  --text-2:   #4A5E4A;
+  --ghost:    #8AA08A;
+  --border:   #D4E0D4;
+  --border-2: #B8CEB8;
+  --radius:   14px;
+  --rsm:      8px;
+  --l2-bg:#EDE9FE;--l2-t:#5B21B6;
+  --l3-bg:#DCFCE7;--l3-t:#166534;
+  --l4-bg:#DBEAFE;--l4-t:#1E40AF;
+  --l5-bg:#FEF3C7;--l5-t:#92400E;
+}
+
+html,body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; max-width:430px; margin:0 auto; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+
+/* ── AUTH ── */
+#auth { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:40px 28px 60px; background:#16482b; }
+#auth.gone { display:none; }
+.auth-icon-wrap { width:140px; height:140px; background:transparent; border-radius:32px; overflow:hidden; margin-bottom:28px; box-shadow:0 8px 32px rgba(0,0,0,.18); }
+.auth-mark { font-family:'Baloo 2',sans-serif; font-size:52px; font-weight:800; line-height:1; color:#fff; margin-bottom:20px; text-align:center; }
+.auth-mark em { color:#b6e234; font-style:normal; }
+.auth-tag { font-family:'DM Sans',sans-serif; font-size:15px; color:rgba(255,255,255,.72); text-align:center; line-height:1.6; max-width:260px; margin-bottom:48px; }
+.a-btn { width:100%; max-width:310px; padding:15px 20px; border:none; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:15px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:12px; margin-bottom:10px; transition:opacity .15s,transform .1s; }
+.a-btn:hover{opacity:.9;} .a-btn:active{transform:scale(.98);}
+.a-btn.g { background:#fff; color:#111; }
+.a-btn.a { background:#111; color:#fff; }
+.a-ico { font-size:18px; width:22px; text-align:center; }
+.a-small { font-family:'DM Sans',sans-serif; font-size:12px; color:rgba(255,255,255,.48); text-align:center; margin-top:28px; line-height:1.7; max-width:240px; }
+
+/* ── APP SHELL ── */
+#app { display:none; }
+#app.vis { display:block; }
+
+/* ── HEADER ── */
+.hdr { position:sticky; top:0; z-index:200; background:var(--grn-dk); padding:13px 18px; display:flex; align-items:center; justify-content:space-between; }
+.hdr-logo { font-family:'Barlow Condensed',sans-serif; font-size:28px; font-weight:900; color:#fff; }
+.hdr-logo em { color:#C8F135; font-style:normal; }
+.icon-btn { width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,.12); border:none; display:flex; align-items:center; justify-content:center; font-size:15px; cursor:pointer; color:#fff; transition:background .15s; }
+.icon-btn:hover { background:rgba(255,255,255,.22); }
+
+/* ── LOC STRIP ── */
+.loc { background:var(--grn-mid); padding:8px 18px; display:flex; align-items:center; justify-content:space-between; }
+.loc-l { font-size:12px; color:rgba(255,255,255,.8); font-weight:500; display:flex; align-items:center; gap:6px; }
+.live-pill { display:flex; align-items:center; gap:5px; background:rgba(200,241,53,.2); border:1px solid rgba(200,241,53,.5); border-radius:20px; padding:3px 9px; font-size:11px; font-weight:700; color:#C8F135; font-family:'Barlow Condensed',sans-serif; letter-spacing:1px; text-transform:uppercase; }
+.pulse { width:6px; height:6px; background:#C8F135; border-radius:50%; animation:blink 1.6s ease-in-out infinite; flex-shrink:0; }
+@keyframes blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.7)}}
+
+/* ── VIEW TOGGLE (List / Map) ── */
+.view-toggle { display:flex; padding:10px 14px 0; gap:6px; }
+.vt-btn { flex:1; padding:8px; border:1.5px solid var(--border-2); border-radius:var(--rsm); background:var(--bg-2); font-family:'Barlow Condensed',sans-serif; font-size:14px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--text-2); cursor:pointer; transition:all .15s; text-align:center; }
+.vt-btn.on { background:var(--grn-dk); border-color:var(--grn-dk); color:#fff; }
+
+/* ── GEO NOTICE ── */
+.geo { margin:10px 14px 0; background:var(--amber-lt); border:1px solid rgba(224,123,0,.25); border-radius:var(--rsm); padding:9px 13px; font-size:12px; color:var(--amber); line-height:1.5; display:flex; gap:8px; align-items:flex-start; }
+
+/* ── SEARCH & FILTERS ── */
+.search-wrap { padding:10px 14px 0; }
+.search-box { width:100%; padding:10px 14px; background:var(--bg-2); border:1.5px solid var(--border); border-radius:var(--rsm); font-family:'DM Sans',sans-serif; font-size:14px; color:var(--text); outline:none; transition:border-color .2s; }
+.search-box::placeholder { color:var(--ghost); }
+.search-box:focus { border-color:var(--grn-mid); }
+.filter-bar { padding:10px 14px 0; display:flex; gap:7px; flex-wrap:wrap; }
+.f-chip { font-family:'Barlow Condensed',sans-serif; font-size:13px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; padding:5px 12px; border-radius:20px; border:1.5px solid var(--border-2); background:var(--bg-2); color:var(--text-2); cursor:pointer; transition:all .15s; white-space:nowrap; }
+.f-chip.on { background:var(--grn-dk); border-color:var(--grn-dk); color:#fff; }
+.f-chip:hover:not(.on) { border-color:var(--grn-mid); color:var(--grn-dk); }
+
+/* ── SECTION HDR ── */
+.sec { padding:14px 18px 8px; display:flex; align-items:baseline; justify-content:space-between; }
+.sec-title { font-family:'Barlow Condensed',sans-serif; font-size:12px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--ghost); }
+.sec-ct { font-size:12px; color:var(--ghost); }
+.zone-lbl { padding:12px 18px 4px; font-family:'Barlow Condensed',sans-serif; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--grn-mid); }
+
+/* ── COURTS LIST ── */
+.courts { padding:0 12px 110px; display:flex; flex-direction:column; gap:9px; }
+
+/* ── CARD ── */
+.card { background:var(--bg-2); border:1.5px solid var(--border); border-radius:var(--radius); overflow:hidden; transition:border-color .18s,box-shadow .18s; }
+.card.active { border-color:var(--grn-mid); box-shadow:0 0 0 1px var(--grn-mid); }
+.card.closed { border-color:#FCA5A5; opacity:.85; }
+.card:not(.active):not(.closed):hover { border-color:var(--border-2); box-shadow:0 2px 12px rgba(0,0,0,.06); }
+.card-bar { height:3px; background:transparent; }
+.card.active .card-bar { background:var(--grn-mid); }
+.card.busy:not(.active) .card-bar { background:var(--lime); }
+.card.closed .card-bar { background:#FCA5A5; }
+
+.card-head { padding:13px 15px 8px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.card-name { font-family:'Barlow Condensed',sans-serif; font-size:21px; font-weight:800; color:var(--text); line-height:1.05; }
+.card-meta { font-size:11px; color:var(--ghost); margin-top:3px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.tag { display:inline-flex; align-items:center; gap:3px; font-size:11px; padding:2px 7px; border-radius:4px; font-weight:500; white-space:nowrap; }
+.tag.net    { background:var(--grn-lt); color:var(--grn-dk); }
+.tag.courts { background:#F0FDF4; color:#166534; }
+.tag.nonets { background:var(--bg-3); color:var(--ghost); }
+.tag.indoor { background:#EDE9FE; color:#5B21B6; }
+.tag.outdoor{ background:#DCFCE7; color:#166534; }
+.tag.closed-tag { background:var(--closed); color:var(--closed-t); font-weight:600; }
+
+.chip { flex-shrink:0; display:flex; align-items:center; gap:5px; font-family:'Barlow Condensed',sans-serif; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; padding:4px 9px; border-radius:20px; margin-top:2px; white-space:nowrap; }
+.chip.live  { background:var(--grn-lt); color:var(--grn-dk); border:1px solid var(--border-2); }
+.chip.live .pulse { background:var(--grn-mid); width:5px; height:5px; }
+.chip.empty { background:var(--bg-3); color:var(--ghost); border:1px solid var(--border); }
+.chip.me    { background:var(--amber-lt); color:var(--amber); border:1px solid rgba(224,123,0,.3); }
+.chip.shut  { background:var(--closed); color:var(--closed-t); border:1px solid #FCA5A5; }
+
+.schedule-strip { margin:0 15px 10px; background:var(--bg-3); border-radius:var(--rsm); padding:8px 11px; }
+.schedule-title { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--ghost); margin-bottom:5px; }
+.sch-row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-2); margin-bottom:2px; }
+.sch-days { font-weight:600; color:var(--grn-dk); min-width:64px; }
+.verify-link { display:block; margin-top:6px; font-size:11px; color:var(--grn-mid); font-weight:600; text-decoration:none; }
+.verify-link:hover { text-decoration:underline; }
+
+.badges { padding:0 15px 10px; display:flex; flex-wrap:wrap; gap:6px; min-height:32px; align-items:center; }
+.badge { display:flex; align-items:center; gap:4px; border-radius:6px; padding:4px 9px; font-family:'Barlow Condensed',sans-serif; font-size:16px; font-weight:800; line-height:1; }
+.badge .bn { font-family:'DM Sans',sans-serif; font-size:10px; font-weight:500; opacity:.7; }
+.badge.l2{background:var(--l2-bg);color:var(--l2-t);}
+.badge.l3{background:var(--l3-bg);color:var(--l3-t);}
+.badge.l4{background:var(--l4-bg);color:var(--l4-t);}
+.badge.l5{background:var(--l5-bg);color:var(--l5-t);}
+.badge.me-b { outline:2px solid var(--amber); }
+.nobody { font-size:12px; color:var(--ghost); font-style:italic; }
+
+/* ── OPTION A: Grouped player bars ── */
+.player-bars { display:flex; flex-direction:column; gap:5px; padding:1px 0; }
+.pbar-row { display:flex; align-items:center; gap:8px; min-height:20px; }
+.pbar-lvl { font-family:'Barlow Condensed',sans-serif; font-size:12px; font-weight:800; padding:2px 6px; border-radius:4px; min-width:32px; text-align:center; flex-shrink:0; }
+.pbar-track { flex:1; background:var(--bg-3); border-radius:3px; height:8px; overflow:hidden; }
+.pbar-fill { height:100%; border-radius:3px; }
+.pbar-fill.l2 { background:var(--l2-t); }
+.pbar-fill.l3 { background:#16A34A; }
+.pbar-fill.l4 { background:var(--l4-t); }
+.pbar-fill.l5 { background:var(--l5-t); }
+.pbar-ct { font-family:'Barlow Condensed',sans-serif; font-size:13px; font-weight:800; color:var(--text-2); min-width:20px; text-align:right; flex-shrink:0; }
+
+/* ── PAYWALL ── */
+.pw-hero { background:var(--grn-dk); padding:36px 24px 28px; text-align:center; }
+.pw-hero-icon { font-size:44px; display:block; margin-bottom:14px; }
+.pw-hero-title { font-family:'Barlow Condensed',sans-serif; font-size:34px; font-weight:900; color:#fff; margin-bottom:8px; }
+.pw-hero-sub { font-size:14px; color:rgba(255,255,255,.72); line-height:1.6; }
+.pw-body { padding:22px 20px 0; }
+.pw-perks { display:flex; flex-direction:column; gap:10px; margin-bottom:24px; }
+.pw-perk { display:flex; align-items:center; gap:13px; background:var(--bg-2); border:1.5px solid var(--border); border-radius:10px; padding:12px 14px; }
+.pw-perk-icon { font-size:22px; flex-shrink:0; }
+.pw-pk-title { font-size:14px; font-weight:600; color:var(--text); line-height:1.2; }
+.pw-pk-sub { font-size:12px; color:var(--ghost); margin-top:2px; }
+.pw-cta { width:100%; padding:15px; background:var(--lime); border:none; border-radius:var(--rsm); font-family:'Barlow Condensed',sans-serif; font-size:18px; font-weight:900; letter-spacing:.5px; color:#1E4D2B; cursor:pointer; transition:background .15s; margin-bottom:8px; display:block; }
+.pw-cta:hover { background:#90D830; }
+.pw-annual { text-align:center; font-size:12px; color:var(--ghost); margin-bottom:14px; }
+.pw-restore { width:100%; padding:8px; background:transparent; border:none; font-size:13px; color:var(--ghost); cursor:pointer; text-decoration:underline; display:block; }
+.pw-teaser { border-top:1.5px solid var(--border); padding:16px; margin-top:20px; }
+.pw-teaser-label { font-family:'Barlow Condensed',sans-serif; font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--ghost); margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+.pw-teaser-item { display:flex; align-items:center; gap:10px; background:var(--bg-2); border:1.5px solid var(--border); border-radius:10px; padding:11px 13px; margin-bottom:8px; filter:blur(3px); user-select:none; pointer-events:none; }
+.pw-ti-av { width:36px; height:36px; border-radius:50%; background:var(--grn-lt); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed',sans-serif; font-size:16px; font-weight:800; color:var(--grn-dk); flex-shrink:0; }
+.pw-ti-name { font-size:14px; font-weight:600; color:var(--text); }
+.pw-ti-status { font-size:12px; color:var(--ghost); margin-top:1px; }
+
+.card-foot { border-top:1px solid var(--border); padding:9px 15px; display:flex; align-items:center; justify-content:space-between; }
+.foot-meta { display:flex; gap:12px; }
+.mi { font-size:11px; color:var(--ghost); display:flex; align-items:center; gap:3px; }
+.cta { font-family:'Barlow Condensed',sans-serif; font-size:13px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; padding:7px 15px; border-radius:var(--rsm); border:none; cursor:pointer; transition:all .15s; }
+.cta.in  { background:var(--grn-dk); color:#fff; }
+.cta.in:hover { background:var(--grn-mid); }
+.cta.out { background:var(--amber-lt); color:var(--amber); border:1.5px solid rgba(224,123,0,.35); }
+.cta.out:hover { background:#FFE0B2; }
+.cta.disabled { background:var(--bg-3); color:var(--ghost); cursor:not-allowed; }
+.cta:active:not(.disabled) { transform:scale(.96); }
+
+/* ── MAP VIEW ── */
+#map-view { display:none; }
+#map-view.vis { display:block; }
+#map { height:calc(100vh - 180px); width:100%; }
+
+/* custom Leaflet popup */
+.leaflet-popup-content-wrapper { border-radius:10px !important; border:1.5px solid var(--border) !important; box-shadow:0 4px 20px rgba(0,0,0,.12) !important; padding:0 !important; overflow:hidden; }
+.leaflet-popup-content { margin:0 !important; width:240px !important; }
+.map-popup { padding:14px; }
+.mp-name { font-family:'Barlow Condensed',sans-serif; font-size:18px; font-weight:800; color:var(--text); line-height:1.1; margin-bottom:4px; }
+.mp-hood { font-size:12px; color:var(--ghost); margin-bottom:8px; }
+.mp-badges { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; min-height:24px; }
+.mp-badge { font-family:'Barlow Condensed',sans-serif; font-size:14px; font-weight:800; padding:3px 8px; border-radius:5px; }
+.mp-nobody { font-size:12px; color:var(--ghost); font-style:italic; }
+.mp-tags { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:10px; }
+.mp-tag { font-size:11px; font-weight:500; padding:2px 7px; border-radius:4px; }
+.mp-btn { width:100%; padding:9px; background:var(--grn-dk); color:#fff; border:none; border-radius:var(--rsm); font-family:'Barlow Condensed',sans-serif; font-size:14px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; cursor:pointer; transition:background .15s; }
+.mp-btn:hover { background:var(--grn-mid); }
+.mp-btn.closed-btn { background:var(--bg-3); color:var(--ghost); cursor:not-allowed; }
+.mp-closed { font-size:12px; color:var(--closed-t); font-weight:600; margin-bottom:8px; }
+.mp-sch { font-size:11px; color:var(--text-2); margin-bottom:8px; line-height:1.5; }
+.leaflet-popup-tip-container { display:none; }
+
+/* Leaflet marker overrides */
+.marker-live { background:var(--grn-dk); border:2px solid var(--grn-mid); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed',sans-serif; font-size:12px; font-weight:800; width:32px; height:32px; box-shadow:0 2px 8px rgba(0,0,0,.25); position:relative; }
+.marker-live.has-players { background:var(--lime); color:var(--grn-dk); border-color:var(--grn-dk); }
+.marker-live.is-me { background:var(--amber); color:#fff; border-color:var(--amber); }
+.marker-live.is-cc { border-radius:6px; }
+.marker-live.is-closed { background:#FCA5A5; color:var(--closed-t); border-color:#FCA5A5; }
+.marker-pulse { position:absolute; top:-3px; right:-3px; width:10px; height:10px; background:#C8F135; border-radius:50%; border:2px solid #fff; animation:blink 1.6s ease-in-out infinite; }
+
+/* ── DETAIL SHEET (map drill-down) ── */
+#detail-sheet { display:none; position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:430px; background:var(--bg-2); border:1.5px solid var(--border); border-bottom:none; border-radius:20px 20px 0 0; z-index:500; max-height:70vh; overflow-y:auto; padding:20px 22px 100px; animation:up .22s ease; }
+#detail-sheet.vis { display:block; }
+@keyframes up{from{transform:translateX(-50%) translateY(20px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+.ds-handle { width:36px; height:3px; background:var(--border-2); border-radius:2px; margin:0 auto 16px; }
+.ds-close { position:absolute; top:16px; right:18px; background:var(--bg-3); border:none; border-radius:50%; width:28px; height:28px; font-size:14px; cursor:pointer; color:var(--ghost); display:flex; align-items:center; justify-content:center; }
+.ds-title { font-family:'Barlow Condensed',sans-serif; font-size:26px; font-weight:900; color:var(--text); margin-bottom:3px; }
+.ds-hood { font-size:13px; color:var(--ghost); margin-bottom:12px; }
+.ds-tags { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+.ds-badges { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; min-height:30px; align-items:center; }
+.ds-nobody { font-size:13px; color:var(--ghost); font-style:italic; }
+.ds-cta { width:100%; padding:14px; background:var(--grn-dk); color:#fff; border:none; border-radius:var(--rsm); font-family:'Barlow Condensed',sans-serif; font-size:17px; font-weight:900; letter-spacing:.5px; cursor:pointer; transition:background .15s; margin-top:4px; }
+.ds-cta:hover { background:var(--grn-mid); }
+.ds-cta.closed { background:var(--bg-3); color:var(--ghost); cursor:not-allowed; }
+.ds-cta.out-btn { background:var(--amber-lt); color:var(--amber); border:1.5px solid rgba(224,123,0,.35); }
+
+/* ── BOTTOM NAV ── */
+.nav { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:430px; background:var(--bg-2); border-top:1.5px solid var(--border); display:flex; padding:10px 0 env(safe-area-inset-bottom,14px); z-index:300; }
+.ni { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:var(--ghost); cursor:pointer; padding:4px 0; transition:color .15s; }
+.ni.on { color:var(--grn-dk); }
+.nico { font-size:20px; line-height:1; }
+
+/* ── SHEET ── */
+.overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:400; align-items:flex-end; justify-content:center; }
+.overlay.open { display:flex; }
+.sheet { background:var(--bg-2); border:1.5px solid var(--border); border-bottom:none; border-radius:20px 20px 0 0; width:100%; max-width:430px; padding:20px 22px 48px; animation:up2 .22s ease; }
+@keyframes up2{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.sh-handle { width:36px; height:3px; background:var(--border-2); border-radius:2px; margin:0 auto 18px; }
+.s-title { font-family:'Barlow Condensed',sans-serif; font-size:26px; font-weight:900; color:var(--text); margin-bottom:4px; }
+.s-sub { font-size:13px; color:var(--ghost); margin-bottom:20px; line-height:1.5; }
+.fl { font-size:11px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:var(--ghost); margin-bottom:6px; display:flex; justify-content:space-between; }
+.fl .opt { font-weight:400; text-transform:none; letter-spacing:0; }
+.fg { margin-bottom:16px; }
+.fi,.fs { width:100%; padding:11px 13px; background:var(--bg); border:1.5px solid var(--border); border-radius:var(--rsm); font-family:'DM Sans',sans-serif; font-size:15px; color:var(--text); outline:none; appearance:none; transition:border-color .2s; }
+.fi::placeholder { color:var(--ghost); }
+.fi:focus,.fs:focus { border-color:var(--grn-mid); }
+.tr { display:flex; gap:7px; }
+.tb { flex:1; padding:10px 4px; background:var(--bg); border:1.5px solid var(--border); border-radius:var(--rsm); font-family:'Barlow Condensed',sans-serif; font-size:15px; font-weight:700; color:var(--ghost); cursor:pointer; transition:all .15s; text-align:center; }
+.tb.on { background:var(--grn-lt); border-color:var(--grn-mid); color:var(--grn-dk); }
+.tog-row { display:flex; align-items:center; justify-content:space-between; padding:13px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin-bottom:16px; }
+.tl { font-size:14px; font-weight:500; color:var(--text); }
+.ts { font-size:12px; color:var(--ghost); margin-top:2px; }
+.tog { width:44px; height:26px; background:var(--bg-3); border:1.5px solid var(--border-2); border-radius:13px; position:relative; cursor:pointer; flex-shrink:0; transition:background .2s; }
+.tog.on { background:var(--grn-mid); border-color:var(--grn-mid); }
+.tog::after { content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; background:#fff; border-radius:50%; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+.tog.on::after { transform:translateX(18px); }
+.btn-main { width:100%; padding:14px; background:var(--grn-dk); color:#fff; border:none; border-radius:var(--rsm); font-family:'Barlow Condensed',sans-serif; font-size:17px; font-weight:900; letter-spacing:.5px; cursor:pointer; margin-top:16px; transition:background .15s; }
+.btn-main:hover { background:var(--grn-mid); }
+.btn-ghost { width:100%; padding:12px; background:transparent; border:1.5px solid var(--border-2); border-radius:var(--rsm); color:var(--ghost); font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500; cursor:pointer; margin-top:8px; transition:all .15s; }
+.btn-ghost:hover { border-color:var(--grn-mid); color:var(--grn-dk); }
+
+/* ── PROFILE ── */
+#pview { display:none; padding:20px 20px 110px; }
+#pview.vis { display:block; }
+.pv-title { font-family:'Barlow Condensed',sans-serif; font-size:30px; font-weight:900; color:var(--text); margin-bottom:2px; }
+.pv-sub { font-size:13px; color:var(--ghost); margin-bottom:22px; }
+.sr { display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--border); }
+.sk { font-size:13px; color:var(--ghost); }
+.sv { font-size:14px; font-weight:600; color:var(--text); }
+.sv.grn { color:var(--grn-dk); }
+hr.div { border:none; border-top:1px solid var(--border); margin:18px 0; }
+.btn-danger { width:100%; padding:12px; background:transparent; border:1.5px solid #FCA5A5; border-radius:var(--rsm); color:#DC2626; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500; cursor:pointer; margin-top:10px; }
+.btn-danger:hover { background:#FEF2F2; }
+
+#cview { display:block; }
+#cview.gone { display:none; }
+
+/* ── PLAYERS VIEW ── */
+#plview { display:none; padding-bottom:110px; }
+#plview.vis { display:block; }
+
+.pl-hero { background:var(--bg-2); border-bottom:1.5px solid var(--border); padding:16px 16px 12px; }
+.pl-hero-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:12px; }
+.pl-title { font-family:'Barlow Condensed',sans-serif; font-size:28px; font-weight:900; color:var(--text); line-height:1; }
+.pl-sub { font-size:12px; color:var(--ghost); margin-top:3px; }
+
+.premium-pill { display:flex; align-items:center; gap:4px; background:#FEF9C3; border:1px solid #FDE047; color:#713F12; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; white-space:nowrap; font-family:'Barlow Condensed',sans-serif; letter-spacing:.5px; text-transform:uppercase; margin-top:4px; }
+
+.notif-bar { background:var(--grn-lt); border:1.5px solid var(--border-2); border-radius:var(--rsm); padding:11px 13px; margin-bottom:12px; display:flex; align-items:center; gap:12px; }
+.notif-bar.granted { background:#DCFCE7; border-color:#86EFAC; }
+.notif-bar.denied  { background:#FEF2F2; border-color:#FCA5A5; display:none; }
+.notif-bar-text { flex:1; }
+.notif-bar-title { font-size:13px; font-weight:600; color:var(--text); }
+.notif-bar-sub { font-size:11px; color:var(--text-2); margin-top:2px; line-height:1.4; }
+.notif-bar-btn { font-family:'Barlow Condensed',sans-serif; font-size:13px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; background:var(--grn-dk); color:#fff; border:none; border-radius:var(--rsm); padding:8px 14px; cursor:pointer; white-space:nowrap; flex-shrink:0; transition:background .15s; }
+.notif-bar-btn:hover { background:var(--grn-mid); }
+
+.pl-add-row { display:flex; gap:8px; align-items:center; }
+.pl-search { flex:1; padding:10px 13px; background:var(--bg); border:1.5px solid var(--border); border-radius:var(--rsm); font-family:'DM Sans',sans-serif; font-size:14px; color:var(--text); outline:none; transition:border-color .2s; }
+.pl-search::placeholder { color:var(--ghost); }
+.pl-search:focus { border-color:var(--grn-mid); }
+.pl-qr-btn { width:40px; height:40px; background:var(--bg); border:1.5px solid var(--border); border-radius:var(--rsm); font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all .15s; color:var(--grn-dk); }
+.pl-qr-btn:hover { background:var(--grn-lt); border-color:var(--grn-mid); }
+
+.pl-search-results { margin-top:8px; display:flex; flex-direction:column; gap:6px; }
+.pl-search-result { display:flex; align-items:center; gap:10px; background:var(--bg); border:1.5px solid var(--border); border-radius:var(--rsm); padding:10px 13px; }
+.psr-avatar { width:36px; height:36px; border-radius:50%; background:var(--grn-lt); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed',sans-serif; font-size:16px; font-weight:800; color:var(--grn-dk); flex-shrink:0; }
+.psr-info { flex:1; }
+.psr-name { font-size:14px; font-weight:600; color:var(--text); }
+.psr-rating { font-size:12px; color:var(--ghost); }
+.psr-add { font-family:'Barlow Condensed',sans-serif; font-size:12px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; background:var(--grn-dk); color:#fff; border:none; border-radius:var(--rsm); padding:6px 12px; cursor:pointer; transition:background .15s; }
+.psr-add:hover { background:var(--grn-mid); }
+.psr-add.added { background:var(--bg-3); color:var(--ghost); cursor:default; }
+
+.pl-section-label { padding:14px 16px 6px; font-family:'Barlow Condensed',sans-serif; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--ghost); }
+
+/* alerts */
+.pl-alerts-wrap { background:var(--grn-lt); border-bottom:1.5px solid var(--border-2); }
+.pl-alert-card { display:flex; align-items:center; gap:12px; padding:11px 16px; border-bottom:1px solid rgba(0,0,0,.05); }
+.pal-avatar { width:38px; height:38px; border-radius:50%; background:var(--grn-dk); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed',sans-serif; font-size:17px; font-weight:800; color:#fff; flex-shrink:0; position:relative; }
+.pal-dot { position:absolute; top:-2px; right:-2px; width:11px; height:11px; background:#C8F135; border-radius:50%; border:2px solid #fff; animation:blink 1.6s ease-in-out infinite; }
+.pal-info { flex:1; }
+.pal-name { font-size:14px; font-weight:600; color:var(--text); }
+.pal-where { font-size:12px; color:var(--grn-dk); font-weight:500; }
+.pal-time { font-size:11px; color:var(--ghost); }
+.pal-go-btn { font-family:'Barlow Condensed',sans-serif; font-size:12px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; background:var(--grn-dk); color:#fff; border:none; border-radius:var(--rsm); padding:7px 12px; cursor:pointer; white-space:nowrap; transition:background .15s; }
+.pal-go-btn:hover { background:var(--grn-mid); }
+
+/* favorites list */
+.pl-fav-list { padding:0 12px; display:flex; flex-direction:column; gap:8px; }
+.fav-card { background:var(--bg-2); border:1.5px solid var(--border); border-radius:var(--radius); padding:13px 15px; display:flex; align-items:center; gap:12px; transition:border-color .15s; }
+.fav-card.online { border-color:var(--grn-mid); }
+.fav-avatar { width:42px; height:42px; border-radius:50%; background:var(--grn-lt); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed',sans-serif; font-size:19px; font-weight:800; color:var(--grn-dk); flex-shrink:0; position:relative; }
+.fav-avatar.online-av { background:var(--grn-dk); color:#fff; }
+.fav-online-dot { position:absolute; top:-1px; right:-1px; width:12px; height:12px; background:#C8F135; border-radius:50%; border:2px solid #fff; animation:blink 1.6s ease-in-out infinite; }
+.fav-info { flex:1; min-width:0; }
+.fav-name { font-size:15px; font-weight:600; color:var(--text); }
+.fav-status { font-size:12px; color:var(--ghost); margin-top:2px; }
+.fav-status.active { color:var(--grn-mid); font-weight:500; }
+.fav-right { display:flex; flex-direction:column; align-items:flex-end; gap:7px; }
+.fav-rating { font-family:'Barlow Condensed',sans-serif; font-size:16px; font-weight:800; padding:3px 9px; border-radius:5px; }
+.fav-notif-tog { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--ghost); cursor:pointer; }
+.fav-notif-tog .tog { width:34px; height:20px; }
+.fav-notif-tog .tog::after { width:14px; height:14px; }
+.fav-notif-tog .tog.on::after { transform:translateX(14px); }
+.fav-remove { background:none; border:none; color:var(--ghost); font-size:16px; cursor:pointer; padding:2px; line-height:1; transition:color .15s; }
+.fav-remove:hover { color:#DC2626; }
+
+.pl-empty { padding:48px 24px; text-align:center; }
+.pl-empty-icon { font-size:40px; margin-bottom:12px; }
+.pl-empty-title { font-family:'Barlow Condensed',sans-serif; font-size:20px; font-weight:800; color:var(--text); margin-bottom:6px; }
+.pl-empty-sub { font-size:13px; color:var(--ghost); line-height:1.6; max-width:240px; margin:0 auto; }
+
+/* QR box */
+.qr-box { background:var(--bg); border:1.5px solid var(--border); border-radius:var(--rsm); padding:24px; display:flex; align-items:center; justify-content:center; margin-bottom:12px; min-height:180px; }
+.qr-box canvas { display:block; }
+.share-url { background:var(--bg); border:1.5px solid var(--border); border-radius:var(--rsm); padding:11px 14px; font-size:13px; color:var(--text-2); font-family:monospace; word-break:break-all; margin-bottom:4px; }
+
+/* in-app notification toast (green variant) */
+.notif-toast { position:fixed; top:80px; left:12px; right:12px; max-width:406px; margin:0 auto; background:var(--grn-dk); color:#fff; border-radius:var(--radius); padding:13px 16px; z-index:700; box-shadow:0 4px 20px rgba(0,0,0,.2); display:flex; align-items:center; gap:12px; transform:translateY(-120px); opacity:0; transition:all .3s ease; pointer-events:none; }
+.notif-toast.show { transform:translateY(0); opacity:1; pointer-events:auto; }
+.nt-avatar { width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,.15); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed',sans-serif; font-size:16px; font-weight:800; flex-shrink:0; }
+.nt-text { flex:1; }
+.nt-title { font-size:13px; font-weight:600; line-height:1.2; }
+.nt-sub { font-size:11px; opacity:.75; margin-top:2px; }
+.nt-go { font-family:'Barlow Condensed',sans-serif; font-size:12px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; background:#C8F135; color:var(--grn-dk); border:none; border-radius:var(--rsm); padding:7px 11px; cursor:pointer; flex-shrink:0; }
+
+
+/* ── TOAST ── */
+.toast { position:fixed; bottom:88px; left:50%; transform:translateX(-50%) translateY(8px); background:var(--text); color:#fff; font-size:13px; font-weight:500; padding:10px 18px; border-radius:30px; opacity:0; pointer-events:none; transition:all .25s; white-space:nowrap; z-index:600; max-width:340px; text-align:center; }
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* Map legend */
+.map-legend { position:absolute; top:10px; right:10px; z-index:1000; background:var(--bg-2); border:1.5px solid var(--border); border-radius:var(--rsm); padding:10px 12px; font-size:11px; color:var(--text-2); display:flex; flex-direction:column; gap:5px; }
+.leg-item { display:flex; align-items:center; gap:7px; }
+.leg-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+.leg-sq  { width:12px; height:12px; border-radius:3px; flex-shrink:0; }
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth">
+  <div class="auth-icon-wrap">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="140" height="140">
+      <defs>
+        <radialGradient id="bg" cx="34%" cy="28%" r="95%"><stop offset="0" stop-color="#235236"/><stop offset="1" stop-color="#163a23"/></radialGradient>
+        <radialGradient id="ball" cx="38%" cy="32%" r="80%"><stop offset="0" stop-color="#d4f057"/><stop offset="1" stop-color="#a6d518"/></radialGradient>
+      </defs>
+      <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+      <path d="M148 96 H364 A64 64 0 0 1 428 160 V296 A64 64 0 0 1 364 360 H214 L150 420 L170 360 H148 A64 64 0 0 1 84 296 V160 A64 64 0 0 1 148 96 Z" fill="#ffffff" stroke="#b6e234" stroke-width="12" stroke-linejoin="round"/>
+      <g transform="translate(256,228) scale(0.64) translate(-256,-256)">
+        <circle cx="256" cy="256" r="150" fill="url(#ball)"/>
+        <ellipse cx="206" cy="198" rx="64" ry="44" fill="#ffffff" opacity="0.16"/>
+        <g fill="#175030">
+          <circle cx="256" cy="256" r="18"/><circle cx="256" cy="178" r="17"/>
+          <circle cx="323.5" cy="217" r="17"/><circle cx="323.5" cy="295" r="17"/>
+          <circle cx="256" cy="334" r="17"/><circle cx="188.5" cy="295" r="17"/>
+          <circle cx="188.5" cy="217" r="17"/><circle cx="320" cy="145" r="15"/>
+          <circle cx="384" cy="256" r="15"/><circle cx="320" cy="367" r="15"/>
+          <circle cx="192" cy="367" r="15"/><circle cx="128" cy="256" r="15"/>
+          <circle cx="192" cy="145" r="15"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+  <div class="auth-mark">Court<em>Call</em></div>
+  <p class="auth-tag">See who's on the court<br>before you drive over.</p>
+  <button class="a-btn g" onclick="signIn('Google')"><span class="a-ico">G</span>Continue with Google</button>
+  <button class="a-btn a" onclick="signIn('Apple')"><span class="a-ico">🍎</span>Continue with Apple</button>
+  <p class="a-small">Your location is only active when you check in. Only your skill rating is shown by default.</p>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header class="hdr">
+    <div class="hdr-logo">Court<em>Call</em></div>
+    <button class="icon-btn" id="hdr-avatar-btn" onclick="goView('profile')" title="Profile" style="padding:0;overflow:hidden;border-radius:50%;width:36px;height:36px;">
+      <img id="hdr-avatar-img" src="" alt="Profile" style="width:36px;height:36px;border-radius:50%;object-fit:cover;display:none;">
+      <span id="hdr-avatar-fb">👤</span>
+    </button>
+  </header>
+  <div class="loc">
+    <div class="loc-l">📍 Seattle & Shoreline · <span id="active-ct">0</span> courts with players</div>
+    <div class="live-pill"><span class="pulse"></span>Live</div>
+  </div>
+
+  <!-- LIST VIEW -->
+  <div id="cview">
+    <div class="view-toggle">
+      <button class="vt-btn on" id="vt-list" onclick="switchViewMode('list')">☰ List</button>
+      <button class="vt-btn"    id="vt-map"  onclick="switchViewMode('map')">🗺 Map</button>
+    </div>
+    <div class="geo"><span>📡</span><span>Watching for courts near you. Arrive at any listed court to auto-prompt check-in.</span></div>
+    <div class="search-wrap"><input class="search-box" id="search" placeholder="Search courts or neighborhoods…" oninput="renderCourts()"></div>
+    <div class="filter-bar">
+      <div class="f-chip on" data-f="all"    onclick="setFilter('all',this)">All</div>
+      <div class="f-chip"    data-f="north"  onclick="setFilter('north',this)">North</div>
+      <div class="f-chip"    data-f="south"  onclick="setFilter('south',this)">South</div>
+      <div class="f-chip"    data-f="cc"     onclick="setFilter('cc',this)">Community Centers</div>
+      <div class="f-chip"    data-f="active" onclick="setFilter('active',this)">Players Now</div>
+      <div class="f-chip"    data-f="nets"      onclick="setFilter('nets',this)">Nets Provided</div>
+      <div class="f-chip"    data-f="shoreline" onclick="setFilter('shoreline',this)">Shoreline</div>
+    </div>
+    <div class="sec"><span class="sec-title">Open Play Courts</span><span class="sec-ct" id="ct-lbl"></span></div>
+    <div class="courts" id="court-list"></div>
+  </div>
+
+  <!-- MAP VIEW -->
+  <div id="map-view">
+    <div class="view-toggle" style="position:relative;z-index:1001;">
+      <button class="vt-btn"    id="vt-list2" onclick="switchViewMode('list')">☰ List</button>
+      <button class="vt-btn on" id="vt-map2"  onclick="switchViewMode('map')">🗺 Map</button>
+    </div>
+    <div style="position:relative;">
+      <div id="map"></div>
+      <div class="map-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#1E4D2B"></div>Outdoor court</div>
+        <div class="leg-item"><div class="leg-sq"  style="background:#1E4D2B"></div>Community Center</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#7DC832"></div>Players now</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#E07B00"></div>You're here</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#FCA5A5"></div>Temp. closed</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE VIEW -->
+  <div id="pview">
+    <!-- Avatar + title row -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
+      <div style="position:relative;flex-shrink:0;">
+        <div style="width:72px;height:72px;border-radius:50%;background:var(--grn-lt);border:2px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:28px;">
+          <img id="pv-avatar-img" src="" alt="Profile photo" style="width:100%;height:100%;object-fit:cover;display:none;">
+          <span id="pv-avatar-fb">👤</span>
+        </div>
+        <button onclick="document.getElementById('avatar-input').click()" title="Upload photo" style="position:absolute;bottom:0;right:0;width:24px;height:24px;border-radius:50%;background:var(--grn-dk);border:2px solid var(--bg);color:#fff;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;">+</button>
+      </div>
+      <div>
+        <div class="pv-title">Your Profile</div>
+        <div class="pv-sub" id="p-greet">—</div>
+      </div>
+    </div>
+    <input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="handleAvatarUpload(event)">
+    <div class="sr"><span class="sk">Skill rating</span><span class="sv grn" id="p-rating">—</span></div>
+    <div class="sr"><span class="sk">Name visible to others</span><span class="sv" id="p-nv">No</span></div>
+    <div class="sr"><span class="sk">Sessions checked in</span><span class="sv" id="p-sess">0</span></div>
+    <hr class="div">
+    <div class="fg"><div class="fl">First name <span class="opt">(optional)</span></div><input class="fi" id="e-name" placeholder="e.g. Lauren"></div>
+    <div class="fg"><div class="fl">Skill rating</div>
+      <select class="fs" id="e-rating">
+        <option value="">Select level</option>
+        <option value="2.5">2.5 — Beginner</option>
+        <option value="3.0">3.0 — Learning</option>
+        <option value="3.5">3.5 — Intermediate</option>
+        <option value="4.0">4.0 — Advanced</option>
+        <option value="4.5">4.5 — Competitive</option>
+        <option value="5.0">5.0 — Elite</option>
+      </select>
+    </div>
+    <div class="tog-row">
+      <div><div class="tl">Show my name at courts</div><div class="ts">First name next to your rating</div></div>
+      <div class="tog" id="p-tog" onclick="toggleP()"></div>
+    </div>
+    <button class="btn-main" onclick="saveProfile()">Save Profile</button>
+    <button class="btn-danger" onclick="signOut()">Sign Out</button>
+  </div>
+
+  <nav class="nav">
+    <div class="ni on" id="n-courts"  onclick="goView('courts')"><span class="nico">📍</span>Courts</div>
+    <div class="ni"    id="n-players" onclick="goView('players')"><span class="nico">⭐</span>Players</div>
+    <div class="ni"    id="n-profile" onclick="goView('profile')"><span class="nico">👤</span>Profile</div>
+  </nav>
+</div>
+
+<!-- PLAYERS VIEW -->
+<div id="plview">
+
+  <!-- ── LOCKED STATE (paywall) ── -->
+  <div id="pl-locked">
+    <div class="pw-hero">
+      <span class="pw-hero-icon">⭐</span>
+      <div class="pw-hero-title">Players</div>
+      <div class="pw-hero-sub">Track your favorite players and get push notifications the moment they hit the court.</div>
+    </div>
+    <div class="pw-body">
+      <div class="pw-perks">
+        <div class="pw-perk"><span class="pw-perk-icon">⭐</span><div><div class="pw-pk-title">Favorite any player</div><div class="pw-pk-sub">Build your go-to list of partners at a glance</div></div></div>
+        <div class="pw-perk"><span class="pw-perk-icon">🔔</span><div><div class="pw-pk-title">Push notifications</div><div class="pw-pk-sub">Instant alert when a favorite checks in anywhere</div></div></div>
+        <div class="pw-perk"><span class="pw-perk-icon">🟢</span><div><div class="pw-pk-title">Live court status</div><div class="pw-pk-sub">See which courts your people are playing right now</div></div></div>
+      </div>
+      <button class="pw-cta" onclick="unlockPremium()">Unlock Players — $2.99/mo</button>
+      <div class="pw-annual">or $19.99/year · save 44%</div>
+      <button class="pw-restore" onclick="restorePurchase()">Restore Purchase</button>
+    </div>
+    <!-- blurred teaser -->
+    <div class="pw-teaser">
+      <div class="pw-teaser-label">🔒 Preview</div>
+      <div class="pw-teaser-item"><div class="pw-ti-av">J</div><div><div class="pw-ti-name">Jordan M.</div><div class="pw-ti-status">🟢 At Greenlake East</div></div></div>
+      <div class="pw-teaser-item"><div class="pw-ti-av">A</div><div><div class="pw-ti-name">Alex K.</div><div class="pw-ti-status">Last seen 2 hrs ago</div></div></div>
+      <div class="pw-teaser-item"><div class="pw-ti-av">M</div><div><div class="pw-ti-name">Maya R.</div><div class="pw-ti-status">Last seen yesterday</div></div></div>
+    </div>
+  </div>
+
+  <!-- ── UNLOCKED STATE (premium content) ── -->
+  <div id="pl-unlocked" style="display:none">
+    <div class="pl-hero">
+      <div class="pl-hero-top">
+        <div>
+          <div class="pl-title">Players</div>
+          <div class="pl-sub">Your favorites · Get notified when they check in</div>
+        </div>
+        <div class="premium-pill">⭐ Premium</div>
+      </div>
+      <!-- notification permission bar -->
+      <div class="notif-bar" id="notif-bar">
+        <div class="notif-bar-text">
+          <div class="notif-bar-title">🔔 Enable push notifications</div>
+          <div class="notif-bar-sub">Get alerted when favorites hit the court — even when CourtCall is closed</div>
+        </div>
+        <button class="notif-bar-btn" onclick="requestNotifPermission()">Enable</button>
+      </div>
+      <!-- search to add -->
+      <div class="pl-add-row">
+        <input class="pl-search" id="pl-search" placeholder="Search players by name…" oninput="searchPlayers()">
+        <button class="pl-qr-btn" onclick="showMyQR()" title="Share your profile">⬡</button>
+      </div>
+      <div id="pl-search-results" class="pl-search-results"></div>
+    </div>
+
+    <!-- active alerts -->
+    <div id="pl-alerts" class="pl-alerts-wrap" style="display:none">
+      <div class="pl-section-label">🟢 On the court now</div>
+      <div id="pl-alerts-list"></div>
+    </div>
+
+    <!-- favorites list -->
+    <div class="pl-section-label" id="pl-fav-label">Your Favorites</div>
+    <div id="pl-fav-list" class="pl-fav-list"></div>
+    <div id="pl-empty" class="pl-empty">
+      <div class="pl-empty-icon">🏓</div>
+      <div class="pl-empty-title">No favorites yet</div>
+      <div class="pl-empty-sub">Search for players above or tap any skill badge on a court card to add them</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- QR / SHARE SHEET -->
+<div class="overlay" id="qr-ov" onclick="closeSheet('qr-ov')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sh-handle"></div>
+    <div class="s-title">Share Your Profile</div>
+    <div class="s-sub">Let other players find and favorite you by sharing your CourtCall link or QR code.</div>
+    <div class="qr-box" id="qr-box"></div>
+    <div class="share-url" id="share-url"></div>
+    <button class="btn-main" onclick="copyShareLink()">Copy Link</button>
+    <button class="btn-ghost" onclick="closeSheet('qr-ov')">Done</button>
+  </div>
+</div>
+
+<!-- CHECK-IN SHEET -->
+<div class="overlay" id="ci-ov" onclick="closeSheet('ci-ov')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sh-handle"></div>
+    <div class="s-title" id="ci-name">Check In</div>
+    <div class="s-sub">You'll appear live. Only your skill rating is visible by default.</div>
+    <div class="fg"><div class="fl">Confirm skill rating</div><select class="fs" id="ci-rating"></select></div>
+    <div class="tog-row">
+      <div><div class="tl">Show my name</div><div class="ts">First name only, visible to other CourtCall users</div></div>
+      <div class="tog" id="ci-tog" onclick="toggleCI()"></div>
+    </div>
+    <div class="fg">
+      <div class="fl">Auto check-out after</div>
+      <div class="tr">
+        <div class="tb" onclick="setTimer(1)">1 hr</div>
+        <div class="tb on" onclick="setTimer(2)">2 hr</div>
+        <div class="tb" onclick="setTimer(3)">3 hr</div>
+      </div>
+    </div>
+    <button class="btn-main" onclick="doCheckIn()">I'm Here — Go Live</button>
+    <button class="btn-ghost" onclick="closeSheet('ci-ov')">Cancel</button>
+  </div>
+</div>
+
+<!-- MAP DETAIL SHEET -->
+<div id="detail-sheet">
+  <div class="ds-handle"></div>
+  <button class="ds-close" onclick="closeDetail()">✕</button>
+  <div class="ds-title" id="ds-name"></div>
+  <div class="ds-hood" id="ds-hood"></div>
+  <div class="ds-tags" id="ds-tags"></div>
+  <div id="ds-closed-notice" style="display:none" class="mp-closed">⚠️ Temporarily closed — check SPR for reopening updates</div>
+  <div id="ds-schedule" style="display:none" class="schedule-strip" style="margin:0 0 14px"></div>
+  <div class="ds-badges" id="ds-badges"></div>
+  <button class="ds-cta" id="ds-cta-btn" onclick="dsCheckInOut()"></button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SPR_URL = 'https://anc.apm.activecommunities.com/seattle/activity/search?onlineSiteId=0&activity_keyword=pickleball&viewMode=list';
+
+// ── COURT DATA ──────────────────────────────────────────────────────────────
+const COURTS = [
+  // OUTDOOR NORTH
+  {id:1, type:'outdoor',zone:'north',name:'Gilman Playground',       hood:'Ballard',          courts:4, nets:1, lat:47.6560,lng:-122.3807, closed:false, schedule:null,
+   players:[{lvl:3.5,name:null},{lvl:4.0,name:'Chris'},{lvl:3.5,name:null}]},
+  {id:2, type:'outdoor',zone:'north',name:'Bitter Lake Playfield',   hood:'Bitter Lake',      courts:8, nets:4, lat:47.7268,lng:-122.3437, closed:false, schedule:null, players:[]},
+  {id:3, type:'outdoor',zone:'north',name:'Soundview Playfield',     hood:'Crown Hill',       courts:4, nets:0, lat:47.7052,lng:-122.3701, closed:false, schedule:null,
+   players:[{lvl:3.0,name:null},{lvl:3.5,name:'Alex'}]},
+  {id:4, type:'outdoor',zone:'north',name:'Greenlake Park (East)',   hood:'Green Lake',       courts:8, nets:8, lat:47.6796,lng:-122.3236, closed:false,
+   schedule:[{days:'Mon/Wed/Sat/Sun',time:'8am–3pm (open play pilot)'}],
+   players:[{lvl:4.0,name:'Jordan'},{lvl:4.5,name:null},{lvl:3.5,name:'Maya'},{lvl:4.0,name:null}]},
+  {id:5, type:'outdoor',zone:'north',name:'Greenwood Park',          hood:'Greenwood',        courts:1, nets:0, lat:47.6983,lng:-122.3549, closed:false, schedule:null, players:[]},
+  {id:6, type:'outdoor',zone:'north',name:'Laurelhurst Playfield',   hood:'Laurelhurst',      courts:1, nets:1, lat:47.6620,lng:-122.2865, closed:false, schedule:null, players:[]},
+  {id:7, type:'outdoor',zone:'north',name:'Discovery Park',          hood:'Magnolia',         courts:4, nets:0, lat:47.6614,lng:-122.4117, closed:false, schedule:null,
+   players:[{lvl:3.5,name:null},{lvl:3.0,name:'Sam'}]},
+  {id:8, type:'outdoor',zone:'north',name:'Magnolia Playfield (W)',  hood:'Magnolia',         courts:8, nets:2, lat:47.6505,lng:-122.4014, closed:false, schedule:null, players:[]},
+  {id:9, type:'outdoor',zone:'north',name:'Maple Leaf Reservoir Pk', hood:'Maple Leaf',       courts:2, nets:0, lat:47.7004,lng:-122.3149, closed:false, schedule:null, players:[]},
+  {id:10,type:'outdoor',zone:'north',name:'Kinnear Park',            hood:'Queen Anne',       courts:1, nets:0, lat:47.6338,lng:-122.3694, closed:false, schedule:null, players:[]},
+  {id:11,type:'outdoor',zone:'north',name:'Observatory Courts',      hood:'Queen Anne',       courts:2, nets:0, lat:47.6364,lng:-122.3567, closed:false, schedule:null,
+   players:[{lvl:4.5,name:null}]},
+  // OUTDOOR SOUTH
+  {id:12,type:'outdoor',zone:'south',name:'Beacon Hill Playfield',   hood:'Beacon Hill',      courts:4, nets:0, lat:47.5741,lng:-122.3076, closed:false, schedule:null, players:[]},
+  {id:13,type:'outdoor',zone:'south',name:'Dearborn Park',           hood:'Beacon Hill',      courts:4, nets:0, lat:47.5808,lng:-122.3147, closed:false, schedule:null,
+   players:[{lvl:3.0,name:null},{lvl:3.0,name:'Pat'}]},
+  {id:14,type:'outdoor',zone:'south',name:'Brighton Playfield',      hood:'Beacon Hill',      courts:4, nets:1, lat:47.5534,lng:-122.2944, closed:false, schedule:null, players:[]},
+  {id:15,type:'outdoor',zone:'south',name:'Miller Playfield',        hood:'Capitol Hill',     courts:4, nets:4, lat:47.6172,lng:-122.3062, closed:false,
+   schedule:[{days:'Mon/Wed/Fri',time:'10am–Noon (open play)'}],
+   players:[{lvl:3.5,name:'Riley'},{lvl:3.5,name:null},{lvl:4.0,name:null}]},
+  {id:16,type:'outdoor',zone:'south',name:'Georgetown Playfield',    hood:'Georgetown',       courts:4, nets:0, lat:47.5487,lng:-122.3241, closed:false, schedule:null, players:[]},
+  {id:17,type:'outdoor',zone:'south',name:'Montlake Playfield',      hood:'Montlake',         courts:1, nets:0, lat:47.6415,lng:-122.3022, closed:false, schedule:null, players:[]},
+  {id:18,type:'outdoor',zone:'south',name:'Mount Baker Park',        hood:'Mount Baker',      courts:4, nets:2, lat:47.5786,lng:-122.2858, closed:false,
+   schedule:[{days:'Tue/Thu',time:'10am–Noon (open play)'}],
+   players:[{lvl:4.0,name:null},{lvl:3.5,name:null}]},
+  {id:19,type:'outdoor',zone:'south',name:'South Park Playground',   hood:'South Park',       courts:2, nets:0, lat:47.5266,lng:-122.3291, closed:false, schedule:null, players:[]},
+  {id:20,type:'outdoor',zone:'south',name:'Lakeridge Park',          hood:'Rainier Beach',    courts:2, nets:0, lat:47.5193,lng:-122.2681, closed:false, schedule:null, players:[]},
+  {id:21,type:'outdoor',zone:'south',name:'Rainier Beach Playfield', hood:'Rainier Beach',    courts:8, nets:0, lat:47.5228,lng:-122.2780, closed:false, schedule:null, players:[]},
+  {id:22,type:'outdoor',zone:'south',name:'Alki Playground',         hood:'West Seattle',     courts:4, nets:1, lat:47.5824,lng:-122.4098, closed:false, schedule:null,
+   players:[{lvl:3.0,name:null},{lvl:2.5,name:'Dana'}]},
+  {id:23,type:'outdoor',zone:'south',name:'Delridge Playfield',      hood:'West Seattle',     courts:4, nets:4, lat:47.5623,lng:-122.3720, closed:false,
+   schedule:[{days:'Mon/Wed/Fri',time:'10am–Noon (open play)'}], players:[]},
+  {id:24,type:'outdoor',zone:'south',name:'Walt Hundley Playfield',  hood:'West Seattle',     courts:4, nets:4, lat:47.5452,lng:-122.3726, closed:false,
+   schedule:[{days:'Mon/Wed/Fri',time:'10am–Noon (open play)'}],
+   players:[{lvl:3.5,name:null},{lvl:3.5,name:'Casey'},{lvl:4.0,name:null}]},
+  // COMMUNITY CENTERS
+  {id:25,type:'cc',zone:'south',name:'Rainier Community Ctr',        hood:'Rainier Valley',   courts:6, nets:6, lat:47.5595,lng:-122.2845, closed:false,
+   schedule:[{days:'Check SPR',time:'Multiple sessions · Free'}], note:'East gym: recreational · West gym: competitive',
+   players:[{lvl:3.0,name:'Sam'},{lvl:2.5,name:null},{lvl:3.0,name:null}]},
+  {id:26,type:'cc',zone:'south',name:'Rainier Beach Community Ctr',  hood:'Rainier Beach',    courts:3, nets:3, lat:47.5239,lng:-122.2786, closed:false, schedule:null, players:[]},
+  {id:27,type:'cc',zone:'south',name:'Delridge Community Ctr',       hood:'West Seattle',     courts:3, nets:3, lat:47.5621,lng:-122.3698, closed:false,
+   schedule:[{days:'Check SPR',time:'Drop-in · Free'}], players:[]},
+  {id:28,type:'cc',zone:'south',name:'Hiawatha Community Ctr',       hood:'West Seattle',     courts:2, nets:2, lat:47.5834,lng:-122.3832, closed:false,
+   schedule:[{days:'Tue/Thu',time:'10am–Noon · Free · Ages 18+'}], players:[]},
+  {id:29,type:'cc',zone:'south',name:'High Point Community Ctr',     hood:'West Seattle',     courts:2, nets:2, lat:47.5468,lng:-122.3730, closed:false, schedule:null, players:[]},
+  {id:30,type:'cc',zone:'south',name:'Jefferson Community Ctr',      hood:'Beacon Hill',      courts:2, nets:2, lat:47.5624,lng:-122.3060, closed:false,
+   schedule:[{days:'Wed',time:'6–8:30pm · Coed flight · $40'}], players:[]},
+  {id:31,type:'cc',zone:'south',name:'South Park Community Ctr',     hood:'South Park',       courts:2, nets:2, lat:47.5294,lng:-122.3249, closed:false,
+   schedule:[{days:'Mon/Wed/Fri',time:'9am–1pm · Free'}], players:[]},
+  {id:32,type:'cc',zone:'south',name:'Van Asselt Community Ctr',     hood:'Rainier Valley',   courts:2, nets:2, lat:47.5413,lng:-122.2862, closed:false, schedule:null, players:[]},
+  {id:33,type:'cc',zone:'south',name:'Garfield Community Ctr',       hood:'Central District', courts:2, nets:2, lat:47.6074,lng:-122.3056, closed:false, schedule:null, players:[]},
+  {id:34,type:'cc',zone:'south',name:"Int'l District/Chinatown Ctr", hood:"Int'l District",   courts:2, nets:2, lat:47.5986,lng:-122.3244, closed:false, schedule:null, players:[]},
+  {id:35,type:'cc',zone:'north',name:'Magnolia Community Ctr',       hood:'Magnolia',         courts:2, nets:2, lat:47.6484,lng:-122.3996, closed:false,
+   schedule:null, note:'Check current status before visiting', players:[]},
+  {id:36,type:'cc',zone:'south',name:'Miller Community Ctr',         hood:'Capitol Hill',     courts:2, nets:2, lat:47.6178,lng:-122.3052, closed:false,
+   schedule:[{days:'Check SPR',time:'Drop-in · Free'}], players:[{lvl:3.5,name:'Riley'}]},
+  {id:37,type:'cc',zone:'south',name:'Montlake Community Ctr',       hood:'Montlake',         courts:2, nets:2, lat:47.6429,lng:-122.3015, closed:false,
+   schedule:[{days:'Tue/Sat',time:'Afternoons · Free'}], players:[]},
+  {id:38,type:'cc',zone:'north',name:'Northgate Community Ctr',      hood:'Northgate',        courts:4, nets:4, lat:47.7058,lng:-122.3274, closed:false,
+   schedule:[{days:'Check SPR',time:'Drop-in · Free'}], players:[{lvl:3.5,name:null},{lvl:3.5,name:'Pat'}]},
+  {id:39,type:'cc',zone:'north',name:'Queen Anne Community Ctr',     hood:'Queen Anne',       courts:2, nets:2, lat:47.6354,lng:-122.3567, closed:false,
+   schedule:[{days:'Check SPR',time:'Schedule updated summer 2026'}], players:[]},
+  {id:40,type:'cc',zone:'south',name:'Yesler Community Ctr',         hood:'First Hill',       courts:2, nets:2, lat:47.6010,lng:-122.3202, closed:false, schedule:null, players:[]},
+  {id:41,type:'cc',zone:'north',name:'Ballard Community Ctr',        hood:'Ballard',          courts:2, nets:2, lat:47.6685,lng:-122.3839, closed:false, schedule:null, players:[]},
+  {id:42,type:'cc',zone:'north',name:'Bitter Lake Community Ctr',    hood:'Bitter Lake',      courts:2, nets:2, lat:47.7266,lng:-122.3452, closed:false, schedule:null, players:[]},
+  {id:43,type:'cc',zone:'north',name:'Green Lake Community Ctr',     hood:'Green Lake',       courts:2, nets:2, lat:47.6801,lng:-122.3267, closed:false, schedule:null, players:[]},
+  {id:44,type:'cc',zone:'north',name:'Laurelhurst Community Ctr',    hood:'Laurelhurst',      courts:2, nets:2, lat:47.6618,lng:-122.2872, closed:false, schedule:null, players:[]},
+  {id:45,type:'cc',zone:'north',name:'Loyal Heights Community Ctr',  hood:'Loyal Heights',    courts:2, nets:2, lat:47.6942,lng:-122.3838, closed:false, schedule:null, players:[]},
+  {id:46,type:'cc',zone:'north',name:'Lake City Community Ctr',      hood:'Lake City',        courts:2, nets:2, lat:47.7197,lng:-122.2870, closed:true,
+   schedule:null, note:'Temporarily closed — check SPR for reopening updates', players:[]},
+  {id:47,type:'cc',zone:'north',name:'Magnuson Community Ctr',       hood:'Sand Point',       courts:2, nets:2, lat:47.6804,lng:-122.2534, closed:false, schedule:null, players:[]},
+  {id:48,type:'cc',zone:'north',name:'Meadowbrook Community Ctr',    hood:'Meadowbrook',      courts:2, nets:2, lat:47.7162,lng:-122.2989, closed:false,
+   schedule:[{days:'Check SPR',time:'Recreational sessions available'}], players:[]},
+  {id:49,type:'cc',zone:'north',name:'Ravenna-Eckstein Ctr',         hood:'Ravenna',          courts:2, nets:2, lat:47.6791,lng:-122.3020, closed:false, schedule:null, players:[]},
+  // ── SHORELINE (City of Shoreline — separate municipality, north of Seattle) ──
+  {id:50,type:'outdoor',zone:'shoreline',name:'Shoreview Park',            hood:'Shoreline · near SCC', courts:6, nets:6, lat:47.7572,lng:-122.3479, closed:false,
+   schedule:[{days:'Dawn–Dusk',time:'Free · Reservable · Lighted'}],
+   note:'6 outdoor concrete courts, permanent lines, portable nets on site. 700 NW Innis Arden Way.',
+   players:[{lvl:3.5,name:null},{lvl:4.0,name:'Jamie'},{lvl:3.5,name:null}]},
+  {id:51,type:'outdoor',zone:'shoreline',name:'Shoreline Park',            hood:'Shoreline',        courts:12, nets:6, lat:47.7558,lng:-122.3194, closed:false,
+   schedule:[{days:'Daily',time:'8am–Dusk · Free · Lighted year-round'}],
+   note:'12 pickleball courts (multi-sport), 6 nets on site. 19030 1st Ave NE.',
+   players:[]},
+  {id:53,type:'outdoor',zone:'shoreline',name:'Meridian Park Elementary',  hood:'Shoreline',        courts:4, nets:1, lat:47.7509,lng:-122.3317, closed:false,
+   schedule:[{days:'Varies',time:'Free when school not in session'}],
+   note:'⚠️ Only available when no school activities scheduled. 17077 Meridian Ave N.',
+   players:[]},
+  {id:55,type:'cc',zone:'shoreline',   name:'Spartan Recreation Center',   hood:'Shoreline',        courts:3, nets:0, lat:47.7563,lng:-122.3221, closed:false,
+   schedule:[{days:'Check facility',time:'One-time fee · Bring your own net'}],
+   note:'3 indoor courts, permanent lines. BYOB net. Next to Shoreline Community College.',
+   players:[]},
+];
+
+// ── STATE ───────────────────────────────────────────────────────────────────
+const S = {user:null, checkedIn:null, checkedInAt:null, timer:2, showName:false, ciShowName:false, sessions:0, view:'courts', viewMode:'list', filter:'all', pending:null, detailId:null, isPremium:false};
+let leafletMap = null, markers = {};
+
+// ── SUPABASE BACKEND ─────────────────────────────────────────────────────────
+//
+//  SETUP INSTRUCTIONS (takes ~5 minutes):
+//  1. Create a free project at supabase.com
+//  2. Run this SQL in the Supabase SQL editor:
+//
+//     create table checkins (
+//       id           uuid primary key default gen_random_uuid(),
+//       court_id     integer not null,
+//       user_id      text not null unique,   -- one active checkin per user
+//       display_name text,                   -- null = anonymous
+//       rating       numeric(3,1) not null,
+//       checked_in_at timestamptz default now()
+//     );
+//     alter table checkins enable row level security;
+//     create policy "public read"  on checkins for select using (true);
+//     create policy "own insert"   on checkins for insert with check (true);
+//     create policy "own update"   on checkins for update using (true);
+//     create policy "own delete"   on checkins for delete using (true);
+//
+//     -- Optional: auto-expire rows older than 4 hours (safety net)
+//     create or replace function expire_old_checkins() returns void language sql as $$
+//       delete from checkins where checked_in_at < now() - interval '4 hours';
+//     $$;
+//
+//  3. Paste your project URL and anon key below.
+//
+// ⚠️  Paste your credentials here — find them in Supabase → Settings → API
+const SUPABASE_URL  = 'https://vjgajlwmucycyzrdgcsa.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqZ2FqbHdtdWN5Y3l6cmRnY3NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Nzg1ODQsImV4cCI6MjA5ODI1NDU4NH0.uLMIS3rfjibQjvng0tn2VckmAQGrKqsN72lUtDZwpG8';
+
+let sb = null;              // Supabase client, null when not configured
+let realtimeSub = null;     // active realtime subscription
+
+function supabaseReady() {
+  return !!(sb && SUPABASE_URL && SUPABASE_ANON);
+}
+
+function initSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_ANON) return;   // not configured — local-only mode
+  try {
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    console.log('[CourtCall] Supabase connected');
+  } catch(e) {
+    console.warn('[CourtCall] Supabase init failed:', e.message);
+    sb = null;
+  }
+}
+
+// Load all current checkins from DB and merge into COURTS[].players
+async function loadCheckins() {
+  if (!supabaseReady()) return;
+  const { data, error } = await sb.from('checkins').select('*');
+  if (error) { console.warn('[CourtCall] loadCheckins error:', error.message); return; }
+  mergeRemotePlayers(data || []);
+  renderCourts();
+}
+
+// Merge remote rows into COURTS[].players, preserving local _me entry
+function mergeRemotePlayers(rows) {
+  // Clear all remote players (keep _me)
+  COURTS.forEach(c => { c.players = c.players.filter(p => p._me); });
+  // Re-insert remote players
+  rows.forEach(row => {
+    const court = COURTS.find(c => c.id === row.court_id);
+    if (!court) return;
+    // Skip if this is the local user — _me row is authoritative
+    if (S.user && row.user_id === S.user.id) return;
+    // Avoid duplicates
+    if (!court.players.find(p => p._uid === row.user_id)) {
+      court.players.push({ lvl: parseFloat(row.rating), name: row.display_name || null, _uid: row.user_id });
+    }
+  });
+}
+
+// Subscribe to realtime changes on the checkins table
+function subscribeRealtime() {
+  if (!supabaseReady()) return;
+  if (realtimeSub) { sb.removeChannel(realtimeSub); realtimeSub = null; }
+
+  realtimeSub = sb.channel('checkins-all')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'checkins' },
+      payload => {
+        const { eventType, new: row, old: oldRow } = payload;
+        if (eventType === 'INSERT' || eventType === 'UPDATE') {
+          // Ignore our own checkin — handled locally already
+          if (S.user && row.user_id === S.user.id) return;
+          const court = COURTS.find(c => c.id === row.court_id);
+          if (!court) return;
+          // Remove any existing entry for this user, add updated one
+          court.players = court.players.filter(p => p._uid !== row.user_id);
+          court.players.push({ lvl: parseFloat(row.rating), name: row.display_name || null, _uid: row.user_id });
+          renderCourts();
+          toast(`🎾 Someone just checked in at ${court.name}`);
+        } else if (eventType === 'DELETE') {
+          const court = COURTS.find(c => c.id === oldRow?.court_id);
+          if (!court) return;
+          court.players = court.players.filter(p => p._uid !== oldRow.user_id);
+          renderCourts();
+        }
+      })
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') console.log('[CourtCall] Realtime active');
+    });
+}
+
+function unsubscribeRealtime() {
+  if (sb && realtimeSub) { sb.removeChannel(realtimeSub); realtimeSub = null; }
+}
+
+// Persist a check-in to Supabase
+async function sbCheckIn(courtId, rating, displayName) {
+  if (!supabaseReady() || !S.user?.id) return;
+  const { error } = await sb.from('checkins').upsert({
+    court_id:     courtId,
+    user_id:      S.user.id,
+    display_name: displayName || null,
+    rating:       rating,
+    checked_in_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' });
+  if (error) console.warn('[CourtCall] sbCheckIn error:', error.message);
+}
+
+// Remove a check-in from Supabase
+async function sbCheckOut(userId) {
+  if (!supabaseReady() || !userId) return;
+  const { error } = await sb.from('checkins').delete().eq('user_id', userId);
+  if (error) console.warn('[CourtCall] sbCheckOut error:', error.message);
+}
+
+// ── HELPERS ─────────────────────────────────────────────────────────────────
+const lc = l => l<3?'l2':l<4?'l3':l<5?'l4':'l5';
+function toast(msg,dur=2800){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),dur);}
+function closeSheet(id){document.getElementById(id).classList.remove('open');}
+
+// ── AUTH ─────────────────────────────────────────────────────────────────────
+
+// True when running inside a Capacitor native shell (iOS or Android)
+const IS_NATIVE = !!(window.Capacitor?.isNativePlatform?.());
+const DEEP_LINK  = 'com.laurenmilan.courtcall://auth';
+
+// Kick off OAuth — native uses deep link + in-app browser, web uses redirect
+async function signIn(p) {
+  if (!sb) { toast('⚠️ Backend not configured'); return; }
+  const provider = p === 'Google' ? 'google' : 'apple';
+
+  if (IS_NATIVE) {
+    // Get the OAuth URL without auto-redirecting the WebView
+    const { data, error } = await sb.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: DEEP_LINK, skipBrowserRedirect: true }
+    });
+    if (error || !data?.url) { toast('Sign-in failed — try again'); return; }
+    // Open in SFSafariViewController (iOS) / Chrome Custom Tab (Android)
+    const Browser = window.Capacitor?.Plugins?.Browser;
+    if (Browser) await Browser.open({ url: data.url, windowName: '_self' });
+    else window.open(data.url, '_blank');
+  } else {
+    // Web: standard redirect — Supabase sends user back to this page
+    const { error } = await sb.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: window.location.href }
+    });
+    if (error) { toast('Sign-in failed — try again'); console.warn('[CourtCall] OAuth error:', error.message); }
+  }
+}
+
+// Listen for OAuth deep link return on native (com.laurenmilan.courtcall://auth#tokens...)
+function setupNativeAuthListener() {
+  const App     = window.Capacitor?.Plugins?.App;
+  const Browser = window.Capacitor?.Plugins?.Browser;
+  if (!App) return;
+  App.addListener('appUrlOpen', async ({ url }) => {
+    if (!url.startsWith('com.laurenmilan.courtcall://auth')) return;
+    if (Browser) await Browser.close();
+    // Parse access + refresh tokens from the URL hash
+    const hash   = url.split('#')[1] || '';
+    const params = new URLSearchParams(hash);
+    const accessToken  = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    if (accessToken && refreshToken && !S.user) {
+      const { data: { session } } = await sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+      if (session) onSignedIn(session);
+    }
+  });
+}
+
+// Called once the Supabase session is confirmed (on redirect return or existing session)
+function onSignedIn(session) {
+  if (S.user) return; // already initialised this session
+  const user = session.user;
+  const meta = user.user_metadata || {};
+  S.user = {
+    provider: user.app_metadata?.provider || 'oauth',
+    name:     meta.full_name || meta.name || user.email?.split('@')[0] || 'Player',
+    rating:   localStorage.getItem('cc_rating') || '3.5',
+    id:       user.id,
+    email:    user.email,
+  };
+  document.getElementById('auth').classList.add('gone');
+  document.getElementById('app').classList.add('vis');
+  // restore saved avatar
+  const savedAvatar = localStorage.getItem('cc_avatar');
+  if(savedAvatar) applyAvatar(savedAvatar);
+  renderCourts();
+  loadCheckins().then(() => subscribeRealtime());
+  startGeofencing();
+}
+
+async function signOut() {
+  if (S.checkedIn) await sbCheckOut(S.user?.id);
+  stopGeofencing();
+  unsubscribeRealtime();
+  COURTS.forEach(c => { c.players = c.players.filter(p => p._me); });
+  if (sb) await sb.auth.signOut();
+  S.user = null; S.checkedIn = null;
+  document.getElementById('app').classList.remove('vis');
+  document.getElementById('auth').classList.remove('gone');
+  goView('courts'); switchViewMode('list');
+}
+
+// ── GEOFENCING ────────────────────────────────────────────────────────────────
+const GEO = {
+  watchId: null,
+  lastPos: null,
+  prompted: new Set(),   // court IDs prompted this session (avoid repeat prompts)
+  CHECKIN_RADIUS:  150,  // metres — inside this, offer to check in
+  CHECKOUT_RADIUS: 300,  // metres — outside this while checked in, auto-checkout
+};
+
+function haversineMetres(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 +
+            Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+            Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function startGeofencing() {
+  if (!('geolocation' in navigator)) {
+    updateGeoBanner('unsupported');
+    return;
+  }
+  updateGeoBanner('requesting');
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      updateGeoBanner('watching');
+      GEO.watchId = navigator.geolocation.watchPosition(
+        onPosition,
+        onGeoError,
+        { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+      );
+    },
+    err => {
+      if (err.code === 1) updateGeoBanner('denied');
+      else updateGeoBanner('error');
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+function stopGeofencing() {
+  if (GEO.watchId !== null) {
+    navigator.geolocation.clearWatch(GEO.watchId);
+    GEO.watchId = null;
+  }
+  GEO.lastPos = null;
+  GEO.prompted.clear();
+}
+
+function onPosition(pos) {
+  const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+  GEO.lastPos = { lat, lng, accuracy };
+
+  // Update map marker if map is visible (future: show blue dot)
+  COURTS.forEach(court => {
+    const dist = haversineMetres(lat, lng, court.lat, court.lng);
+
+    // ── Prompt to check in ──────────────────────────────────────────────────
+    if (
+      dist <= GEO.CHECKIN_RADIUS &&
+      !GEO.prompted.has(court.id) &&
+      S.checkedIn !== court.id &&
+      !court.closed &&
+      S.user
+    ) {
+      GEO.prompted.add(court.id);
+      showProximityPrompt(court, dist);
+    }
+
+    // ── Auto checkout if wandered away (5 min grace period after check-in) ──
+    const GRACE_MS = 5 * 60 * 1000;
+    if (S.checkedIn === court.id && dist > GEO.CHECKOUT_RADIUS && Date.now() - S.checkedInAt > GRACE_MS) {
+      doCheckOut(court.id);
+      toast(`📍 Auto checked out — you've left ${court.name}`);
+      // Allow re-prompting if they return
+      GEO.prompted.delete(court.id);
+    }
+  });
+}
+
+function onGeoError(err) {
+  if (err.code === 1) {
+    updateGeoBanner('denied');
+    stopGeofencing();
+  }
+  // Timeout / unavailable — keep watching silently
+}
+
+function showProximityPrompt(court, distMetres) {
+  const distLabel = distMetres < 10 ? 'right here' : `${Math.round(distMetres)}m away`;
+  // Reuse the existing check-in sheet, triggered automatically
+  S.pending = court.id;
+  document.getElementById('ci-name').textContent = court.name;
+  const sel = document.getElementById('ci-rating');
+  const opts=[['2.5','2.5 — Beginner'],['3.0','3.0 — Learning'],['3.5','3.5 — Intermediate'],['4.0','4.0 — Advanced'],['4.5','4.5 — Competitive'],['5.0','5.0 — Elite']];
+  sel.innerHTML = opts.map(([v,l])=>`<option value="${v}"${v===S.user?.rating?' selected':''}>${l}</option>`).join('');
+  S.ciShowName = S.showName;
+  document.getElementById('ci-tog').classList.toggle('on', S.ciShowName);
+  setTimer(S.timer, false);
+
+  // Update subtitle to reflect proximity
+  document.querySelector('#ci-ov .s-sub').textContent =
+    `📍 You're ${distLabel} from ${court.name}. Go live?`;
+
+  document.getElementById('ci-ov').classList.add('open');
+  toast(`📡 You're near ${court.name} — check in?`, 4000);
+}
+
+// ── GEO BANNER (status indicator) ─────────────────────────────────────────────
+function updateGeoBanner(state) {
+  const el = document.getElementById('geo-banner-text');
+  if (!el) return;
+  const msgs = {
+    requesting: '📡 Requesting location — courts will auto-detect when you arrive.',
+    watching:   '📡 Location active — you\'ll be prompted when you reach a court.',
+    denied:     '🚫 Location access denied. Tap any court card to check in manually.',
+    unsupported:'📍 Location not supported on this device. Check in manually.',
+    error:      '⚠️ Location unavailable. Check in manually from any court card.',
+  };
+  el.textContent = msgs[state] || msgs.watching;
+  const banner = document.getElementById('geo-banner');
+  if (banner) {
+    banner.style.background = state === 'denied' || state === 'error'
+      ? 'rgba(224,123,0,0.08)' : 'var(--amber-lt)';
+  }
+}
+
+// ── VIEW MODE (list vs map) ──────────────────────────────────────────────────
+function switchViewMode(mode){
+  S.viewMode=mode;
+  ['vt-list','vt-list2'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('on',mode==='list');});
+  ['vt-map','vt-map2'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('on',mode==='map');});
+  document.getElementById('cview').classList.toggle('gone', mode==='map');
+  document.getElementById('map-view').classList.toggle('vis', mode==='map');
+  if(mode==='map') initMap();
+}
+
+// ── MAP ──────────────────────────────────────────────────────────────────────
+function initMap(){
+  if(leafletMap){ refreshMarkers(); return; }
+  leafletMap = L.map('map', {zoomControl:true, attributionControl:false})
+    .setView([47.630, -122.335], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(leafletMap);
+  refreshMarkers();
+}
+
+function markerColor(c){
+  if(c.closed)       return '#FCA5A5';
+  if(c.id===S.checkedIn) return '#E07B00';
+  if(c.players.length>0) return '#7DC832';
+  return '#1E4D2B';
+}
+
+function refreshMarkers(){
+  if(!leafletMap) return;
+  Object.values(markers).forEach(m=>leafletMap.removeLayer(m));
+  markers={};
+  COURTS.forEach(c=>{
+    const color = markerColor(c);
+    const isCC  = c.type==='cc';
+    const count = c.players.length;
+    const shape = isCC ? 'border-radius:6px' : 'border-radius:50%';
+    const pulseHTML = (count>0 && !c.closed) ? '<div class="marker-pulse"></div>' : '';
+    const pbImg = `<img src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMjAwIDIwMCIgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPGRlZnM+CiAgICA8cmFkaWFsR3JhZGllbnQgaWQ9ImJhbGxHcmFkIiBjeD0iMzYlIiBjeT0iMzAlIiByPSI3OCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSJoc2woOTAuNSA5MCUgNjMuMjUlKSI+PC9zdG9wPgogICAgICA8c3RvcCBvZmZzZXQ9IjQyJSIgc3RvcC1jb2xvcj0iIzdDRkMwMCI+PC9zdG9wPgogICAgICA8c3RvcCBvZmZzZXQ9IjgyJSIgc3RvcC1jb2xvcj0iaHNsKDkwLjUgMTAwJSAyOS42NSUpIj48L3N0b3A+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iaHNsKDkwLjUgOTUlIDIwLjc1JSkiPjwvc3RvcD4KICAgIDwvcmFkaWFsR3JhZGllbnQ+CiAgICA8cmFkaWFsR3JhZGllbnQgaWQ9InNwZWMiIGN4PSI1MCUiIGN5PSI1MCUiIHI9IjUwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9InJnYmEoMjU1LDI1NSwyNTUsMC44NSkiPjwvc3RvcD4KICAgICAgPHN0b3Agb2Zmc2V0PSI2MCUiIHN0b3AtY29sb3I9InJnYmEoMjU1LDI1NSwyNTUsMC4xNSkiPjwvc3RvcD4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSJyZ2JhKDI1NSwyNTUsMjU1LDApIj48L3N0b3A+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogICAgPHJhZGlhbEdyYWRpZW50IGlkPSJob2xlR3JhZCIgY3g9IjUwJSIgY3k9IjQyJSIgcj0iNjAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iaHNsKDkwLjUgNjUlIDkuODglKSI+PC9zdG9wPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9ImhzbCg5MC41IDcwJSAxNS44MSUpIj48L3N0b3A+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogICAgPGNsaXBQYXRoIGlkPSJiYWxsQ2xpcCI+PGNpcmNsZSBjeD0iMTAwIiBjeT0iMTAwIiByPSI4OCI+PC9jaXJjbGU+PC9jbGlwUGF0aD4KICA8L2RlZnM+CiAgPGNpcmNsZSBjeD0iMTAwIiBjeT0iMTAwIiByPSI4OCIgZmlsbD0idXJsKCNiYWxsR3JhZCkiPjwvY2lyY2xlPgogIDxnIGNsaXAtcGF0aD0idXJsKCNiYWxsQ2xpcCkiPgogICAgICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzOC4xOSAxNjEuNTQpIHJvdGF0ZSgxMzUuMTMpIj48ZWxsaXBzZSByeD0iMS4zNiIgcnk9IjkuNjgiIGZpbGw9ImhzbCg5MC41IDEwMCUgNTguMzElKSI+PC9lbGxpcHNlPjxlbGxpcHNlIGN4PSItMC4xNSIgY3k9Ii0wLjIxIiByeD0iMS4xMSIgcnk9IjcuOTQiIGZpbGw9InVybCgjaG9sZUdyYWQpIj48L2VsbGlwc2U+PC9nPgogICAgICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg4NS4yMSAxODUuNjcpIHJvdGF0ZSg5OS43OSkiPjxlbGxpcHNlIHJ4PSIxLjUwIiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjE3IiBjeT0iLTAuMjQiIHJ4PSIxLjIzIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE0My4wNCAxNzMuNzYpIHJvdGF0ZSg1OS43MykiPjxlbGxpcHNlIHJ4PSIyLjM0IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjI2IiBjeT0iLTAuMzciIHJ4PSIxLjkyIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE5Ljk0IDEyMy44NCkgcm90YXRlKDE2My40MikiPjxlbGxpcHNlIHJ4PSIzLjA0IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjMzIiBjeT0iLTAuNDgiIHJ4PSIyLjUwIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE0NS40MCAzMC44OCkgcm90YXRlKC01Ni43MCkiPjxlbGxpcHNlIHJ4PSIzLjMxIiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjM2IiBjeT0iLTAuNTIiIHJ4PSIyLjcxIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDExOC43NiAxODAuMzUpIHJvdGF0ZSg3Ni44NikiPjxlbGxpcHNlIHJ4PSIzLjM3IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjM3IiBjeT0iLTAuNTMiIHJ4PSIyLjc2IiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwMS4wOSAxOC4wNikgcm90YXRlKC04OS4yNCkiPjxlbGxpcHNlIHJ4PSIzLjUzIiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjM5IiBjeT0iLTAuNTYiIHJ4PSIyLjg5IiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE3MC4wMSAxMzkuNTEpIHJvdGF0ZSgyOS40NCkiPjxlbGxpcHNlIHJ4PSIzLjk0IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjQzIiBjeT0iLTAuNjIiIHJ4PSIzLjIzIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ1LjcxIDQyLjE0KSByb3RhdGUoLTEzMy4xOCkiPjxlbGxpcHNlIHJ4PSI0LjE5IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjQ2IiBjeT0iLTAuNjYiIHJ4PSIzLjQzIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE3NS40MiA3OC40Mikgcm90YXRlKC0xNS45NykiPjxlbGxpcHNlIHJ4PSI0LjM5IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjQ4IiBjeT0iLTAuNjkiIHJ4PSIzLjYwIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI0LjQ3IDgxLjczKSByb3RhdGUoLTE2Ni40MCkiPjxlbGxpcHNlIHJ4PSI0LjU0IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjUwIiBjeT0iLTAuNzIiIHJ4PSIzLjczIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY0LjAyIDE2My43OSkgcm90YXRlKDExOS40MykiPjxlbGxpcHNlIHJ4PSI1LjM3IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjU5IiBjeT0iLTAuODUiIHJ4PSI0LjQwIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEzMC4zNSAxNTEuMTUpIHJvdGF0ZSg1OS4zMikiPjxlbGxpcHNlIHJ4PSI3LjEzIiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjc4IiBjeT0iLTEuMTMiIHJ4PSI1Ljg1IiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEzNi4wNSA1NS4wNikgcm90YXRlKC01MS4yNykiPjxlbGxpcHNlIHJ4PSI3LjMyIiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjgwIiBjeT0iLTEuMTYiIHJ4PSI2LjAwIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDg1LjIyIDQ0LjQ2KSByb3RhdGUoLTEwNC45MCkiPjxlbGxpcHNlIHJ4PSI3LjMzIiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjgxIiBjeT0iLTEuMTYiIHJ4PSI2LjAxIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE1Ni4zNyAxMDguMzgpIHJvdGF0ZSg4LjQ2KSI+PGVsbGlwc2Ugcng9IjcuMzgiIHJ5PSI5LjY4IiBmaWxsPSJoc2woOTAuNSAxMDAlIDU4LjMxJSkiPjwvZWxsaXBzZT48ZWxsaXBzZSBjeD0iLTAuODEiIGN5PSItMS4xNyIgcng9IjYuMDUiIHJ5PSI3Ljk0IiBmaWxsPSJ1cmwoI2hvbGVHcmFkKSI+PC9lbGxpcHNlPjwvZz4KICAgICAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTAuNjEgMTIzLjM3KSByb3RhdGUoMTU0LjY4KSI+PGVsbGlwc2Ugcng9IjcuNTkiIHJ5PSI5LjY4IiBmaWxsPSJoc2woOTAuNSAxMDAlIDU4LjMxJSkiPjwvZWxsaXBzZT48ZWxsaXBzZSBjeD0iLTAuODMiIGN5PSItMS4yMCIgcng9IjYuMjIiIHJ5PSI3Ljk0IiBmaWxsPSJ1cmwoI2hvbGVHcmFkKSI+PC9lbGxpcHNlPjwvZz4KICAgICAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjIuODUgODEuMzgpIHJvdGF0ZSgtMTUzLjM4KSI+PGVsbGlwc2Ugcng9IjguNTMiIHJ5PSI5LjY4IiBmaWxsPSJoc2woOTAuNSAxMDAlIDU4LjMxJSkiPjwvZWxsaXBzZT48ZWxsaXBzZSBjeD0iLTAuOTQiIGN5PSItMS4zNSIgcng9IjcuMDAiIHJ5PSI3Ljk0IiBmaWxsPSJ1cmwoI2hvbGVHcmFkKSI+PC9lbGxpcHNlPjwvZz4KICAgICAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTYuMTIgMTI5Ljk1KSByb3RhdGUoOTcuMzgpIj48ZWxsaXBzZSByeD0iOS4wOSIgcnk9IjkuNjgiIGZpbGw9ImhzbCg5MC41IDEwMCUgNTguMzElKSI+PC9lbGxpcHNlPjxlbGxpcHNlIGN4PSItMS4wMCIgY3k9Ii0xLjQ0IiByeD0iNy40NiIgcnk9IjcuOTQiIGZpbGw9InVybCgjaG9sZUdyYWQpIj48L2VsbGlwc2U+PC9nPgogICAgICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMTQuMjUgODguNTYpIHJvdGF0ZSgtMzguNzYpIj48ZWxsaXBzZSByeD0iOS40NyIgcnk9IjkuNjgiIGZpbGw9ImhzbCg5MC41IDEwMCUgNTguMzElKSI+PC9lbGxpcHNlPjxlbGxpcHNlIGN4PSItMS4wNCIgY3k9Ii0xLjUwIiByeD0iNy43NiIgcnk9IjcuOTQiIGZpbGw9InVybCgjaG9sZUdyYWQpIj48L2VsbGlwc2U+PC9nPgogIDwvZz4KICA8ZWxsaXBzZSBjeD0iNzAuMDgiIGN5PSI2NC44IiByeD0iMjkuOTIiIHJ5PSIxOS4zNiIgZmlsbD0idXJsKCNzcGVjKSIgdHJhbnNmb3JtPSJyb3RhdGUoLTI4IDcwLjA4IDY0LjgpIj48L2VsbGlwc2U+Cjwvc3ZnPg==" width="26" height="26" style="display:block;">`;
+    const innerLabel = count>0 ? `<span style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;color:${color==='#7DC832'?'#1E4D2B':'#fff'}">${count}</span>` : pbImg;
+    const iconHtml = `<div style="width:32px;height:32px;background:${color};border:2px solid ${c.closed?'#FCA5A5':'#fff'};${shape};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.25);position:relative;">${innerLabel}${pulseHTML}</div>`;
+    const icon = L.divIcon({html:iconHtml, className:'', iconSize:[32,32], iconAnchor:[16,16]});
+    const m = L.marker([c.lat, c.lng], {icon}).addTo(leafletMap);
+    m.on('click', ()=>openDetail(c.id));
+    markers[c.id]=m;
+  });
+}
+
+// ── DETAIL SHEET (map drill-down) ────────────────────────────────────────────
+function openDetail(id){
+  const c = COURTS.find(x=>x.id===id);
+  S.detailId = id;
+  document.getElementById('ds-name').textContent = c.name;
+  document.getElementById('ds-hood').textContent = c.hood + ' · ' + c.courts + ' courts';
+
+  // tags
+  const typeTag = c.type==='cc' ? '<span class="tag indoor">🏢 Indoor · Free</span>' : '<span class="tag outdoor">☀️ Outdoor</span>';
+  const netTag  = c.nets>0 ? '' : '<span class="tag nonets">Bring a net</span>';
+  const closedTag = c.closed ? '<span class="tag closed-tag">⚠️ Temp. Closed</span>' : '';
+  document.getElementById('ds-tags').innerHTML = typeTag + netTag + closedTag;
+
+  // closed notice
+  document.getElementById('ds-closed-notice').style.display = c.closed ? 'block' : 'none';
+
+  // schedule
+  const schEl = document.getElementById('ds-schedule');
+  if(c.type==='cc'){
+    let html = '<div class="schedule-title">Drop-in Times</div><div class="schedule-rows">';
+    if(c.schedule){
+      c.schedule.forEach(s=>{ html+=`<div class="sch-row"><span class="sch-days">${s.days}</span><span>${s.time}</span></div>`; });
+    } else {
+      html+='<div class="sch-row" style="color:var(--ghost);font-style:italic">Times vary — verify below</div>';
+    }
+    if(c.note) html+=`<div style="font-size:11px;color:var(--ghost);font-style:italic;margin-top:3px">${c.note}</div>`;
+    html+=`</div><a class="verify-link" href="${SPR_URL}" target="_blank" rel="noopener">Verify current times at SPR →</a>`;
+    schEl.innerHTML=html; schEl.style.display='block';
+  } else { schEl.style.display='none'; }
+
+  // badges
+  let badgesHTML = '';
+  if(c.players.length>0){
+    c.players.forEach(p=>{ const nm=p.name?`<span class="bn">${p.name}</span>`:''; badgesHTML+=`<span class="badge ${lc(p.lvl)}${p._me?' me-b':''}">${p.lvl}${nm}</span>`; });
+  } else { badgesHTML='<span class="ds-nobody">No one checked in yet</span>'; }
+  document.getElementById('ds-badges').innerHTML = badgesHTML;
+
+  // CTA button
+  const btn = document.getElementById('ds-cta-btn');
+  if(c.closed){ btn.textContent='Temporarily Closed'; btn.className='ds-cta closed'; }
+  else if(c.id===S.checkedIn){ btn.textContent='Check Out'; btn.className='ds-cta out-btn'; }
+  else { btn.textContent="I'm Here — Check In"; btn.className='ds-cta'; }
+
+  document.getElementById('detail-sheet').classList.add('vis');
+  // pan map to court
+  if(leafletMap) leafletMap.panTo([c.lat, c.lng]);
+}
+
+function closeDetail(){
+  document.getElementById('detail-sheet').classList.remove('vis');
+  S.detailId=null;
+}
+
+function dsCheckInOut(){
+  if(!S.detailId) return;
+  const c=COURTS.find(x=>x.id===S.detailId);
+  if(c.closed) return;
+  if(c.id===S.checkedIn){ closeDetail(); doCheckOut(c.id); }
+  else { closeDetail(); openCI(c.id); }
+}
+
+// ── FILTER ───────────────────────────────────────────────────────────────────
+function setFilter(f,el){
+  S.filter=f;
+  document.querySelectorAll('.f-chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  renderCourts();
+}
+function filtered(){
+  const q=(document.getElementById('search')?.value||'').toLowerCase();
+  return COURTS.filter(c=>{
+    if(S.filter==='north'     && c.zone!=='north') return false;
+    if(S.filter==='south'     && c.zone!=='south') return false;
+    if(S.filter==='cc'        && c.type!=='cc')    return false;
+    if(S.filter==='active'    && c.players.length===0) return false;
+    if(S.filter==='nets'      && c.nets===0)       return false;
+    if(S.filter==='shoreline' && c.zone!=='shoreline') return false;
+    if(q && !c.name.toLowerCase().includes(q) && !c.hood.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+// ── RENDER LIST ───────────────────────────────────────────────────────────────
+function renderCourts(){
+  const list=document.getElementById('court-list');
+  const courts=filtered().sort((a,b)=>{
+    if(a.id===S.checkedIn) return -1;
+    if(b.id===S.checkedIn) return 1;
+    if(a.closed && !b.closed) return 1;
+    if(!a.closed && b.closed) return -1;
+    return b.players.length-a.players.length;
+  });
+  list.innerHTML=''; let activeCt=0, lastGroup='';
+  courts.forEach(c=>{
+    const isMe=c.id===S.checkedIn, hasP=c.players.length>0;
+    if(hasP&&!c.closed) activeCt++;
+    const group=c.type==='cc'?'cc':c.zone;
+    if(group!==lastGroup && S.filter==='all'){
+      const labels={north:'North Seattle · Outdoor',south:'South Seattle · Outdoor',cc:'Community Centers · Indoor',shoreline:'Shoreline · Outdoor & Indoor'};
+      list.innerHTML+=`<div class="zone-lbl">${labels[group]||group}</div>`;
+      lastGroup=group;
+    }
+    const pbIcon=`<img src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMjAwIDIwMCIgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPGRlZnM+CiAgICA8cmFkaWFsR3JhZGllbnQgaWQ9ImJhbGxHcmFkIiBjeD0iMzYlIiBjeT0iMzAlIiByPSI3OCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSJoc2woOTAuNSA5MCUgNjMuMjUlKSI+PC9zdG9wPgogICAgICA8c3RvcCBvZmZzZXQ9IjQyJSIgc3RvcC1jb2xvcj0iIzdDRkMwMCI+PC9zdG9wPgogICAgICA8c3RvcCBvZmZzZXQ9IjgyJSIgc3RvcC1jb2xvcj0iaHNsKDkwLjUgMTAwJSAyOS42NSUpIj48L3N0b3A+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iaHNsKDkwLjUgOTUlIDIwLjc1JSkiPjwvc3RvcD4KICAgIDwvcmFkaWFsR3JhZGllbnQ+CiAgICA8cmFkaWFsR3JhZGllbnQgaWQ9InNwZWMiIGN4PSI1MCUiIGN5PSI1MCUiIHI9IjUwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9InJnYmEoMjU1LDI1NSwyNTUsMC44NSkiPjwvc3RvcD4KICAgICAgPHN0b3Agb2Zmc2V0PSI2MCUiIHN0b3AtY29sb3I9InJnYmEoMjU1LDI1NSwyNTUsMC4xNSkiPjwvc3RvcD4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSJyZ2JhKDI1NSwyNTUsMjU1LDApIj48L3N0b3A+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogICAgPHJhZGlhbEdyYWRpZW50IGlkPSJob2xlR3JhZCIgY3g9IjUwJSIgY3k9IjQyJSIgcj0iNjAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iaHNsKDkwLjUgNjUlIDkuODglKSI+PC9zdG9wPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9ImhzbCg5MC41IDcwJSAxNS44MSUpIj48L3N0b3A+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogICAgPGNsaXBQYXRoIGlkPSJiYWxsQ2xpcCI+PGNpcmNsZSBjeD0iMTAwIiBjeT0iMTAwIiByPSI4OCI+PC9jaXJjbGU+PC9jbGlwUGF0aD4KICA8L2RlZnM+CiAgPGNpcmNsZSBjeD0iMTAwIiBjeT0iMTAwIiByPSI4OCIgZmlsbD0idXJsKCNiYWxsR3JhZCkiPjwvY2lyY2xlPgogIDxnIGNsaXAtcGF0aD0idXJsKCNiYWxsQ2xpcCkiPgogICAgICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzOC4xOSAxNjEuNTQpIHJvdGF0ZSgxMzUuMTMpIj48ZWxsaXBzZSByeD0iMS4zNiIgcnk9IjkuNjgiIGZpbGw9ImhzbCg5MC41IDEwMCUgNTguMzElKSI+PC9lbGxpcHNlPjxlbGxpcHNlIGN4PSItMC4xNSIgY3k9Ii0wLjIxIiByeD0iMS4xMSIgcnk9IjcuOTQiIGZpbGw9InVybCgjaG9sZUdyYWQpIj48L2VsbGlwc2U+PC9nPgogICAgICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg4NS4yMSAxODUuNjcpIHJvdGF0ZSg5OS43OSkiPjxlbGxpcHNlIHJ4PSIxLjUwIiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjE3IiBjeT0iLTAuMjQiIHJ4PSIxLjIzIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE0My4wNCAxNzMuNzYpIHJvdGF0ZSg1OS43MykiPjxlbGxpcHNlIHJ4PSIyLjM0IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjI2IiBjeT0iLTAuMzciIHJ4PSIxLjkyIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE5Ljk0IDEyMy44NCkgcm90YXRlKDE2My40MikiPjxlbGxpcHNlIHJ4PSIzLjA0IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjMzIiBjeT0iLTAuNDgiIHJ4PSIyLjUwIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE0NS40MCAzMC44OCkgcm90YXRlKC01Ni43MCkiPjxlbGxpcHNlIHJ4PSIzLjMxIiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjM2IiBjeT0iLTAuNTIiIHJ4PSIyLjcxIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDExOC43NiAxODAuMzUpIHJvdGF0ZSg3Ni44NikiPjxlbGxpcHNlIHJ4PSIzLjM3IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjM3IiBjeT0iLTAuNTMiIHJ4PSIyLjc2IiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwMS4wOSAxOC4wNikgcm90YXRlKC04OS4yNCkiPjxlbGxpcHNlIHJ4PSIzLjUzIiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjM5IiBjeT0iLTAuNTYiIHJ4PSIyLjg5IiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE3MC4wMSAxMzkuNTEpIHJvdGF0ZSgyOS40NCkiPjxlbGxpcHNlIHJ4PSIzLjk0IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjQzIiBjeT0iLTAuNjIiIHJ4PSIzLjIzIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ1LjcxIDQyLjE0KSByb3RhdGUoLTEzMy4xOCkiPjxlbGxpcHNlIHJ4PSI0LjE5IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjQ2IiBjeT0iLTAuNjYiIHJ4PSIzLjQzIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE3NS40MiA3OC40Mikgcm90YXRlKC0xNS45NykiPjxlbGxpcHNlIHJ4PSI0LjM5IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjQ4IiBjeT0iLTAuNjkiIHJ4PSIzLjYwIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI0LjQ3IDgxLjczKSByb3RhdGUoLTE2Ni40MCkiPjxlbGxpcHNlIHJ4PSI0LjU0IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjUwIiBjeT0iLTAuNzIiIHJ4PSIzLjczIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY0LjAyIDE2My43OSkgcm90YXRlKDExOS40MykiPjxlbGxpcHNlIHJ4PSI1LjM3IiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjU5IiBjeT0iLTAuODUiIHJ4PSI0LjQwIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEzMC4zNSAxNTEuMTUpIHJvdGF0ZSg1OS4zMikiPjxlbGxpcHNlIHJ4PSI3LjEzIiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjc4IiBjeT0iLTEuMTMiIHJ4PSI1Ljg1IiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEzNi4wNSA1NS4wNikgcm90YXRlKC01MS4yNykiPjxlbGxpcHNlIHJ4PSI3LjMyIiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjgwIiBjeT0iLTEuMTYiIHJ4PSI2LjAwIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDg1LjIyIDQ0LjQ2KSByb3RhdGUoLTEwNC45MCkiPjxlbGxpcHNlIHJ4PSI3LjMzIiByeT0iOS42OCIgZmlsbD0iaHNsKDkwLjUgMTAwJSA1OC4zMSUpIj48L2VsbGlwc2U+PGVsbGlwc2UgY3g9Ii0wLjgxIiBjeT0iLTEuMTYiIHJ4PSI2LjAxIiByeT0iNy45NCIgZmlsbD0idXJsKCNob2xlR3JhZCkiPjwvZWxsaXBzZT48L2c+CiAgICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE1Ni4zNyAxMDguMzgpIHJvdGF0ZSg4LjQ2KSI+PGVsbGlwc2Ugcng9IjcuMzgiIHJ5PSI5LjY4IiBmaWxsPSJoc2woOTAuNSAxMDAlIDU4LjMxJSkiPjwvZWxsaXBzZT48ZWxsaXBzZSBjeD0iLTAuODEiIGN5PSItMS4xNyIgcng9IjYuMDUiIHJ5PSI3Ljk0IiBmaWxsPSJ1cmwoI2hvbGVHcmFkKSI+PC9lbGxpcHNlPjwvZz4KICAgICAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTAuNjEgMTIzLjM3KSByb3RhdGUoMTU0LjY4KSI+PGVsbGlwc2Ugcng9IjcuNTkiIHJ5PSI5LjY4IiBmaWxsPSJoc2woOTAuNSAxMDAlIDU4LjMxJSkiPjwvZWxsaXBzZT48ZWxsaXBzZSBjeD0iLTAuODMiIGN5PSItMS4yMCIgcng9IjYuMjIiIHJ5PSI3Ljk0IiBmaWxsPSJ1cmwoI2hvbGVHcmFkKSI+PC9lbGxpcHNlPjwvZz4KICAgICAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjIuODUgODEuMzgpIHJvdGF0ZSgtMTUzLjM4KSI+PGVsbGlwc2Ugcng9IjguNTMiIHJ5PSI5LjY4IiBmaWxsPSJoc2woOTAuNSAxMDAlIDU4LjMxJSkiPjwvZWxsaXBzZT48ZWxsaXBzZSBjeD0iLTAuOTQiIGN5PSItMS4zNSIgcng9IjcuMDAiIHJ5PSI3Ljk0IiBmaWxsPSJ1cmwoI2hvbGVHcmFkKSI+PC9lbGxpcHNlPjwvZz4KICAgICAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTYuMTIgMTI5Ljk1KSByb3RhdGUoOTcuMzgpIj48ZWxsaXBzZSByeD0iOS4wOSIgcnk9IjkuNjgiIGZpbGw9ImhzbCg5MC41IDEwMCUgNTguMzElKSI+PC9lbGxpcHNlPjxlbGxpcHNlIGN4PSItMS4wMCIgY3k9Ii0xLjQ0IiByeD0iNy40NiIgcnk9IjcuOTQiIGZpbGw9InVybCgjaG9sZUdyYWQpIj48L2VsbGlwc2U+PC9nPgogICAgICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMTQuMjUgODguNTYpIHJvdGF0ZSgtMzguNzYpIj48ZWxsaXBzZSByeD0iOS40NyIgcnk9IjkuNjgiIGZpbGw9ImhzbCg5MC41IDEwMCUgNTguMzElKSI+PC9lbGxpcHNlPjxlbGxpcHNlIGN4PSItMS4wNCIgY3k9Ii0xLjUwIiByeD0iNy43NiIgcnk9IjcuOTQiIGZpbGw9InVybCgjaG9sZUdyYWQpIj48L2VsbGlwc2U+PC9nPgogIDwvZz4KICA8ZWxsaXBzZSBjeD0iNzAuMDgiIGN5PSI2NC44IiByeD0iMjkuOTIiIHJ5PSIxOS4zNiIgZmlsbD0idXJsKCNzcGVjKSIgdHJhbnNmb3JtPSJyb3RhdGUoLTI4IDcwLjA4IDY0LjgpIj48L2VsbGlwc2U+Cjwvc3ZnPg==" width="13" height="13" style="vertical-align:middle;">`;
+    const courtsTag=`<span class="tag courts">${pbIcon}${c.courts} court${c.courts>1?'s':''}</span>`;
+    const typeTag=c.type==='cc'?'<span class="tag indoor">🏢 Indoor · Free</span>':'<span class="tag outdoor">☀️ Outdoor</span>';
+    const netTag=c.nets>0?'':'<span class="tag nonets">Bring a net</span>';
+    const closedTag=c.closed?'<span class="tag closed-tag">⚠️ Temp. Closed</span>':'';
+    const statusChip=c.closed?'<span class="chip shut">Temp. Closed</span>':isMe?'<span class="chip me">✓ You\'re live</span>':hasP?`<span class="chip live"><span class="pulse"></span>${c.players.length} here</span>`:'<span class="chip empty">Empty</span>';
+    let schHTML='';
+    if(c.type==='cc'){
+      schHTML='<div class="schedule-strip"><div class="schedule-title">Drop-in Times</div><div>';
+      if(c.schedule){ c.schedule.forEach(s=>{ schHTML+=`<div class="sch-row"><span class="sch-days">${s.days}</span><span>${s.time}</span></div>`; }); }
+      else { schHTML+='<div class="sch-row" style="color:var(--ghost);font-style:italic">Times vary — verify below</div>'; }
+      if(c.note) schHTML+=`<div style="font-size:11px;color:var(--ghost);font-style:italic;margin-top:2px">${c.note}</div>`;
+      schHTML+=`</div><a class="verify-link" href="${SPR_URL}" target="_blank" rel="noopener">Verify current times at SPR →</a></div>`;
+    }
+    let badgesHTML;
+    if(!hasP){
+      badgesHTML='<span class="nobody">Be the first to check in</span>';
+    } else {
+      // Option A: group by rating, render bar chart
+      const grps={};
+      c.players.forEach(p=>{ const k=p.lvl; grps[k]=(grps[k]||0)+1; });
+      const maxCt=Math.max(...Object.values(grps));
+      const sortedLvls=Object.keys(grps).map(Number).sort((a,b)=>b-a);
+      const hasMe=c.players.some(p=>p._me);
+      const meRow=hasMe?`<div class="pbar-row" style="margin-top:4px;font-size:11px;color:var(--amber);font-weight:600">✓ You're checked in</div>`:'';
+      badgesHTML=`<div class="player-bars">${sortedLvls.map(lvl=>{
+        const cnt=grps[lvl];
+        const pct=Math.round((cnt/maxCt)*100);
+        const cls=lc(lvl);
+        return `<div class="pbar-row"><span class="pbar-lvl badge ${cls}">${lvl}</span><div class="pbar-track"><div class="pbar-fill ${cls}" style="width:${pct}%"></div></div><span class="pbar-ct">${cnt}</span></div>`;
+      }).join('')}${meRow}</div>`;
+    }
+    const btn=c.closed?'<button class="cta disabled">Temp. Closed</button>':isMe?`<button class="cta out" onclick="doCheckOut(${c.id},event)">Check Out</button>`:`<button class="cta in" onclick="openCI(${c.id},event)">Check In</button>`;
+    list.innerHTML+=`<div class="card${isMe?' active':''}${hasP&&!isMe&&!c.closed?' busy':''}${c.closed?' closed':''}" id="card-${c.id}">
+      <div class="card-bar"></div>
+      <div class="card-head"><div><div class="card-name">${c.name}</div><div class="card-meta">${c.hood} ${courtsTag} ${typeTag} ${netTag} ${closedTag}</div></div>${statusChip}</div>
+      ${schHTML}
+      <div class="badges">${badgesHTML}</div>
+      <div class="card-foot">${btn}</div>
+    </div>`;
+  });
+  document.getElementById('active-ct').textContent=activeCt;
+  document.getElementById('ct-lbl').textContent=`${courts.length} of ${COURTS.length}`;
+  refreshMarkers();
+}
+
+// ── CHECK-IN / OUT ────────────────────────────────────────────────────────────
+function openCI(id,e){
+  e&&e.stopPropagation();
+  S.pending=id;
+  const c=COURTS.find(x=>x.id===id);
+  document.getElementById('ci-name').textContent=c.name;
+  const sel=document.getElementById('ci-rating');
+  sel.innerHTML=[['2.5','Beginner'],['3.0','Learning'],['3.5','Intermediate'],['4.0','Advanced'],['4.5','Competitive'],['5.0','Elite']]
+    .map(([v,l])=>`<option value="${v}"${v===S.user?.rating?' selected':''}>${v} — ${l}</option>`).join('');
+  S.ciShowName=S.showName;
+  document.getElementById('ci-tog').classList.toggle('on',S.ciShowName);
+  setTimer(S.timer,false);
+  document.getElementById('ci-ov').classList.add('open');
+}
+function doCheckIn(){
+  const c=COURTS.find(x=>x.id===S.pending);
+  const lvl=parseFloat(document.getElementById('ci-rating').value);
+  const name=S.ciShowName&&S.user?.name?S.user.name:null;
+  COURTS.forEach(x=>{x.players=x.players.filter(p=>!p._me);});
+  c.players.unshift({lvl,name,_me:true});
+  S.checkedIn=S.pending;
+  S.checkedInAt=Date.now();
+  S.sessions++;
+  document.getElementById('p-sess').textContent=S.sessions;
+  closeSheet('ci-ov');
+  renderCourts();
+  toast(`✅ You're live at ${c.name}`);
+  // Persist to Supabase
+  sbCheckIn(c.id, lvl, name);
+  const pid=S.pending;
+  setTimeout(()=>{if(S.checkedIn===pid){doCheckOut(pid);toast(`⏱ Auto checked out from ${c.name}`);}},S.timer*3600000);
+}
+function doCheckOut(id,e){
+  e&&e.stopPropagation();
+  const c=COURTS.find(x=>x.id===id);
+  c.players=c.players.filter(p=>!p._me);
+  // Persist removal to Supabase
+  sbCheckOut(S.user?.id);
+  S.checkedIn=null;
+  closeDetail();
+  renderCourts();
+  toast(`👋 Checked out from ${c.name}`);
+}
+function setTimer(h,save=true){ if(save)S.timer=h; document.querySelectorAll('.tb').forEach((b,i)=>b.classList.toggle('on',i+1===h)); }
+
+// ── TOGGLES ───────────────────────────────────────────────────────────────────
+function toggleP(){ S.showName=!S.showName; document.getElementById('p-tog').classList.toggle('on',S.showName); document.getElementById('p-nv').textContent=S.showName?'Yes':'No'; }
+function toggleCI(){ S.ciShowName=!S.ciShowName; document.getElementById('ci-tog').classList.toggle('on',S.ciShowName); }
+
+// ── PROFILE ───────────────────────────────────────────────────────────────────
+function populateProfile(){
+  if(!S.user)return;
+  const providerLabel = S.user.provider ? S.user.provider.charAt(0).toUpperCase()+S.user.provider.slice(1) : '';
+  document.getElementById('p-greet').textContent = S.user.email
+    ? `${S.user.name} · ${S.user.email}`
+    : `${S.user.name} · via ${providerLabel}`;
+  document.getElementById('e-name').value=S.user.name||'';
+  document.getElementById('e-rating').value=S.user.rating||'3.5';
+  document.getElementById('p-rating').textContent=S.user.rating||'—';
+  document.getElementById('p-tog').classList.toggle('on',S.showName);
+  document.getElementById('p-nv').textContent=S.showName?'Yes':'No';
+  document.getElementById('p-sess').textContent=S.sessions;
+}
+function saveProfile(){
+  S.user.name=document.getElementById('e-name').value.trim()||S.user.name;
+  S.user.rating=document.getElementById('e-rating').value;
+  localStorage.setItem('cc_rating', S.user.rating); // persist across sessions
+  document.getElementById('p-rating').textContent=S.user.rating;
+  toast('Profile saved');
+}
+
+// ── AVATAR / PROFILE PHOTO ───────────────────────────────────────────────────
+function handleAvatarUpload(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    const b64 = ev.target.result;
+    localStorage.setItem('cc_avatar', b64);
+    applyAvatar(b64);
+    toast('Profile photo updated');
+  };
+  reader.readAsDataURL(file);
+  // reset so same file can be re-selected
+  e.target.value='';
+}
+
+function applyAvatar(src){
+  // header button
+  const hdrImg = document.getElementById('hdr-avatar-img');
+  const hdrFb  = document.getElementById('hdr-avatar-fb');
+  if(src){ hdrImg.src=src; hdrImg.style.display=''; hdrFb.style.display='none'; }
+  else   { hdrImg.style.display='none'; hdrFb.style.display=''; }
+  // profile view circle
+  const pvImg = document.getElementById('pv-avatar-img');
+  const pvFb  = document.getElementById('pv-avatar-fb');
+  if(src){ pvImg.src=src; pvImg.style.display=''; pvFb.style.display='none'; }
+  else   { pvImg.style.display='none'; pvFb.style.display=''; }
+}
+
+// ── VIEWS ─────────────────────────────────────────────────────────────────────
+function goView(v){
+  S.view=v;
+  document.getElementById('cview').classList.toggle('gone',v!=='courts'||(v==='courts'&&S.viewMode==='map'));
+  document.getElementById('map-view').classList.toggle('vis',v==='courts'&&S.viewMode==='map');
+  document.getElementById('pview').classList.toggle('vis',v==='profile');
+  document.getElementById('plview').classList.toggle('vis',v==='players');
+  document.getElementById('n-courts').classList.toggle('on',v==='courts');
+  document.getElementById('n-players').classList.toggle('on',v==='players');
+  document.getElementById('n-profile').classList.toggle('on',v==='profile');
+  if(v==='players'){
+    document.getElementById('pl-locked').style.display   = S.isPremium?'none':'block';
+    document.getElementById('pl-unlocked').style.display = S.isPremium?'block':'none';
+  }
+  if(v==='profile') populateProfile();
+  if(v==='courts' && S.viewMode==='map') initMap();
+  if(v==='courts' && S.viewMode==='list') renderCourts();
+}
+
+// ── PREMIUM / IAP stubs (wire to RevenueCat later) ───────────────────────────
+function unlockPremium(){
+  // TODO: call RevenueCat purchase flow
+  // For now, show stub toast
+  toast('🛒 In-app purchase coming soon — stay tuned!');
+}
+function restorePurchase(){
+  // TODO: call RevenueCat restorePurchases()
+  toast('🔄 Checking for existing purchase…');
+}
+// Call this after RevenueCat confirms active entitlement:
+function grantPremium(){
+  S.isPremium=true;
+  if(S.view==='players'){
+    document.getElementById('pl-locked').style.display='none';
+    document.getElementById('pl-unlocked').style.display='block';
+  }
+  toast('⭐ Players unlocked — welcome to premium!');
+}
+</script>
+<!-- IN-APP NOTIFICATION TOAST -->
+<div class="notif-toast" id="notif-toast">
+  <div class="nt-avatar" id="nt-avatar"></div>
+  <div class="nt-text">
+    <div class="nt-title" id="nt-title"></div>
+    <div class="nt-sub"  id="nt-sub"></div>
+  </div>
+  <button class="nt-go" id="nt-go">View →</button>
+</div>
+
+
+<script>
+// ── PLAYERS / FAVORITES STATE ───────────────────────────────────────────────
+// favorites: [{id, name, rating, notifyEnabled, checkedInCourt, addedAt}]
+S.favorites = [];
+S.notifPermission = 'default'; // 'default' | 'granted' | 'denied'
+
+// Simulated player directory (in production this comes from the backend)
+const PLAYER_DIRECTORY = [
+  {id:'p1', name:'Jordan',  rating:'4.5'},
+  {id:'p2', name:'Chris',   rating:'4.0'},
+  {id:'p3', name:'Maya',    rating:'3.5'},
+  {id:'p4', name:'Alex',    rating:'3.5'},
+  {id:'p5', name:'Sam',     rating:'3.0'},
+  {id:'p6', name:'Pat',     rating:'3.5'},
+  {id:'p7', name:'Riley',   rating:'3.5'},
+  {id:'p8', name:'Casey',   rating:'4.0'},
+  {id:'p9', name:'Dana',    rating:'2.5'},
+  {id:'p10',name:'Jamie',   rating:'3.5'},
+];
+
+// ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+function requestNotifPermission(){
+  if(!('Notification' in window)){
+    updateNotifBar('denied'); return;
+  }
+  Notification.requestPermission().then(perm => {
+    S.notifPermission = perm;
+    updateNotifBar(perm);
+    if(perm === 'granted'){
+      toast('🔔 Notifications enabled');
+      // Register push subscription here when backend is live
+    }
+  });
+}
+
+function updateNotifBar(perm){
+  const bar = document.getElementById('notif-bar');
+  if(!bar) return;
+  if(perm === 'granted'){
+    bar.className = 'notif-bar granted';
+    bar.innerHTML = '<div class="notif-bar-text"><div class="notif-bar-title">✅ Notifications enabled</div><div class="notif-bar-sub">You\'ll be alerted when favorites check in — even when the app is closed</div></div>';
+  } else if(perm === 'denied'){
+    bar.className = 'notif-bar denied';
+  }
+}
+
+// In-app notification (fires while app is open)
+function fireInAppNotif(player, court){
+  const el  = document.getElementById('notif-toast');
+  const av  = document.getElementById('nt-avatar');
+  const ttl = document.getElementById('nt-title');
+  const sub = document.getElementById('nt-sub');
+  const go  = document.getElementById('nt-go');
+  av.textContent  = player.name[0];
+  ttl.textContent = `${player.name} just checked in`;
+  sub.textContent = court ? `at ${court.name}` : 'at a court near you';
+  go.onclick = () => {
+    el.classList.remove('show');
+    goView('courts');
+    if(court && S.viewMode==='map'){ setTimeout(()=>openDetail(court.id), 300); }
+  };
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 6000);
+}
+
+// System push notification (when app is backgrounded — requires backend later)
+function firePushNotif(player, court){
+  if(S.notifPermission !== 'granted') return;
+  new Notification(`${player.name} checked in 🏓`, {
+    body: court ? `Now at ${court.name}` : 'Now at a court near you',
+    icon: 'icon-192.png',
+    badge:'icon-192.png',
+    tag: `checkin-${player.id}`,
+  });
+}
+
+// Called whenever anyone checks in — checks if they're a favorited player
+function onCheckinEvent(playerName, court){
+  const fav = S.favorites.find(f =>
+    f.name.toLowerCase() === playerName?.toLowerCase() && f.notifyEnabled
+  );
+  if(!fav) return;
+  fav.checkedInCourt = court?.id || null;
+  renderFavorites();
+  renderAlerts();
+  fireInAppNotif(fav, court);
+  firePushNotif(fav, court);
+}
+
+// ── PLAYER SEARCH ─────────────────────────────────────────────────────────────
+function searchPlayers(){
+  const q = document.getElementById('pl-search').value.trim().toLowerCase();
+  const res = document.getElementById('pl-search-results');
+  if(q.length < 2){ res.innerHTML=''; return; }
+  const matches = PLAYER_DIRECTORY.filter(p =>
+    p.name.toLowerCase().includes(q) &&
+    p.id !== (S.user?.id || 'me')
+  );
+  if(!matches.length){
+    res.innerHTML = '<div style="font-size:13px;color:var(--ghost);padding:8px 4px;">No players found</div>';
+    return;
+  }
+  res.innerHTML = matches.map(p => {
+    const already = S.favorites.some(f => f.id === p.id);
+    return `<div class="pl-search-result">
+      <div class="psr-avatar">${p.name[0]}</div>
+      <div class="psr-info">
+        <div class="psr-name">${p.name}</div>
+        <div class="psr-rating">${p.rating} rating</div>
+      </div>
+      <button class="psr-add${already?' added':''}" onclick="addFavorite('${p.id}')" ${already?'disabled':''}>
+        ${already ? '✓ Added' : '+ Add'}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// ── ADD / REMOVE FAVORITES ────────────────────────────────────────────────────
+function addFavorite(playerId, fromBadge=false){
+  const p = PLAYER_DIRECTORY.find(x => x.id === playerId);
+  if(!p || S.favorites.some(f => f.id === p.id)) return;
+  S.favorites.push({
+    id: p.id,
+    name: p.name,
+    rating: p.rating,
+    notifyEnabled: true,
+    checkedInCourt: null,
+    addedAt: Date.now(),
+  });
+  renderFavorites();
+  renderAlerts();
+  searchPlayers(); // refresh search results to show "Added"
+  if(fromBadge) goView('players');
+  toast(`⭐ ${p.name} added to favorites`);
+}
+
+function removeFavorite(playerId){
+  S.favorites = S.favorites.filter(f => f.id !== playerId);
+  renderFavorites();
+  renderAlerts();
+}
+
+function toggleFavNotif(playerId){
+  const fav = S.favorites.find(f => f.id === playerId);
+  if(!fav) return;
+  fav.notifyEnabled = !fav.notifyEnabled;
+  renderFavorites();
+}
+
+// ── ADD FROM COURT BADGE ──────────────────────────────────────────────────────
+// Wraps badge tap — only when player has shared name
+function badgeTap(playerName, playerRating){
+  if(!playerName) return; // anonymous badge — nothing to add
+  // Try to find in directory, otherwise create temp entry
+  let p = PLAYER_DIRECTORY.find(x => x.name.toLowerCase() === playerName.toLowerCase());
+  if(!p){
+    p = {id:'tmp_'+playerName, name:playerName, rating:String(playerRating)};
+    if(!PLAYER_DIRECTORY.find(x=>x.id===p.id)) PLAYER_DIRECTORY.push(p);
+  }
+  if(S.favorites.some(f => f.id === p.id)){
+    toast(`${playerName} is already in your favorites`); return;
+  }
+  addFavorite(p.id, true);
+}
+
+// ── RENDER FAVORITES ──────────────────────────────────────────────────────────
+function renderFavorites(){
+  const list  = document.getElementById('pl-fav-list');
+  const empty = document.getElementById('pl-empty');
+  const label = document.getElementById('pl-fav-label');
+  if(!list) return;
+  if(!S.favorites.length){
+    list.innerHTML=''; empty.style.display='block'; label.style.display='none'; return;
+  }
+  empty.style.display='none'; label.style.display='block';
+
+  // Find which court each fav is at
+  const favWithCourt = S.favorites.map(f => {
+    const court = f.checkedInCourt ? COURTS.find(c => c.id===f.checkedInCourt) : null;
+    return {...f, court};
+  });
+
+  list.innerHTML = favWithCourt.map(f => {
+    const isOnline = !!f.checkedInCourt;
+    const lcClass  = f.rating<3?'l2':f.rating<4?'l3':f.rating<5?'l4':'l5';
+    const statusTxt = isOnline
+      ? `🟢 At ${f.court?.name || 'a court'}`
+      : 'Not checked in';
+    return `<div class="fav-card${isOnline?' online':''}">
+      <div class="fav-avatar${isOnline?' online-av':''}">${f.name[0]}${isOnline?'<div class="fav-online-dot"></div>':''}</div>
+      <div class="fav-info">
+        <div class="fav-name">${f.name}</div>
+        <div class="fav-status${isOnline?' active':''}">${statusTxt}</div>
+      </div>
+      <div class="fav-right">
+        <span class="fav-rating badge ${lcClass}">${f.rating}</span>
+        <div class="fav-notif-tog" onclick="toggleFavNotif('${f.id}')">
+          <span style="font-size:11px;color:var(--ghost)">Notify</span>
+          <div class="tog${f.notifyEnabled?' on':''}"></div>
+        </div>
+      </div>
+      <button class="fav-remove" onclick="removeFavorite('${f.id}')" title="Remove">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// ── RENDER ACTIVE ALERTS STRIP ────────────────────────────────────────────────
+function renderAlerts(){
+  const wrap   = document.getElementById('pl-alerts');
+  const aList  = document.getElementById('pl-alerts-list');
+  if(!wrap||!aList) return;
+  const online = S.favorites.filter(f => f.checkedInCourt);
+  if(!online.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  aList.innerHTML = online.map(f => {
+    const court = COURTS.find(c=>c.id===f.checkedInCourt);
+    return `<div class="pl-alert-card">
+      <div class="pal-avatar">${f.name[0]}<div class="pal-dot"></div></div>
+      <div class="pal-info">
+        <div class="pal-name">${f.name}</div>
+        <div class="pal-where">📍 ${court?.name||'Unknown court'}</div>
+      </div>
+      <button class="pal-go-btn" onclick="goToCourt(${f.checkedInCourt})">View Court</button>
+    </div>`;
+  }).join('');
+}
+
+function goToCourt(courtId){
+  goView('courts');
+  setTimeout(()=>{
+    const el = document.getElementById('card-'+courtId);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
+  }, 200);
+}
+
+// ── QR / SHARE ────────────────────────────────────────────────────────────────
+function showMyQR(){
+  const userId = S.user?.name?.toLowerCase().replace(/\s+/g,'-') || 'player';
+  const shareUrl = `https://courtcall.app/join/${userId}`;
+  document.getElementById('share-url').textContent = shareUrl;
+  // Simple QR visual placeholder — swap for qrcode.js in production
+  const box = document.getElementById('qr-box');
+  box.innerHTML = `<div style="text-align:center">
+    <div style="font-size:80px;line-height:1">⬡</div>
+    <div style="font-size:12px;color:var(--ghost);margin-top:8px">QR code · Live in production</div>
+  </div>`;
+  document.getElementById('qr-ov').classList.add('open');
+}
+
+function copyShareLink(){
+  const url = document.getElementById('share-url').textContent;
+  navigator.clipboard?.writeText(url).then(()=>{ toast('🔗 Link copied'); closeSheet('qr-ov'); });
+}
+
+</script>
+<script>
+// ── SERVICE WORKER ──────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {
+      // SW registration failed silently — app still works
+    });
+  });
+}
+
+// ── SUPABASE AUTH: restore session on load (handles OAuth redirect return) ──
+window.addEventListener('load', async () => {
+  initSupabase();
+  if (!sb) return;
+
+  if (IS_NATIVE) {
+    // Native: register deep link listener for OAuth callback, then restore any saved session
+    setupNativeAuthListener();
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) onSignedIn(session);
+  } else {
+    // Web: getSession() parses the URL hash after an OAuth redirect and
+    // re-hydrates an existing session from localStorage automatically.
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      onSignedIn(session);
+      return;
+    }
+    // Listen for future sign-in events (tab re-focus, token refresh, etc.)
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && !S.user && session) onSignedIn(session);
+    });
+  }
+});
+
+
+</script>
+</body>
+</html>
